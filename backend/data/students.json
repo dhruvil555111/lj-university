@@ -1,0 +1,9 @@
+[
+  {
+    "fullName": "John Doe",
+    "enrollment": "LJ12345",
+    "email": "student@lj.edu",
+    "department": "BCA",
+    "password": "password123"
+  }
+]
