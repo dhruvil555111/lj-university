@@ -5,5 +5,19 @@
     "email": "student@lj.edu",
     "department": "BCA",
     "password": "password123"
+  },
+  {
+    "fullName": "om hirapara",
+    "enrollment": "24004500210083",
+    "email": "omhirapara437@gmail.com",
+    "department": "BSc IT",
+    "password": "1942006"
+  },
+  {
+    "fullName": "Dhruvil Dobariya",
+    "enrollment": "24004500210056",
+    "email": "dobariyadhruvil29@gmail.com",
+    "department": "MSc IT",
+    "password": "dpatel@321"
   }
 ]
