@@ -75,10 +75,10 @@ function Home({ jobs, loggedInUser, onApply }) {
                     <h2>Featured Job Openings</h2>
                     <p>Handpicked placements for LJ students</p>
                 </div>
-                <JobList 
-                    jobs={featuredJobs} 
-                    loggedInUser={loggedInUser} 
-                    onApply={onApply} 
+                <JobList
+                    jobs={featuredJobs}
+                    loggedInUser={loggedInUser}
+                    onApply={onApply}
                 />
                 <div className="view-all-container">
                     <button className="view-all-btn" onClick={() => navigate("/jobs")}>
