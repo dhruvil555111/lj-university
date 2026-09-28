@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { apiUrl } from "../lib/api";
 
 function RecruiterLogin({ setLoggedInUser }) {
     const navigate = useNavigate();
@@ -51,7 +52,7 @@ function RecruiterLogin({ setLoggedInUser }) {
         }
 
         try {
-            const response = await fetch("http://localhost:5000/api/recruiters/login", {
+            const response = await fetch(apiUrl("recruiters/login"), {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json"

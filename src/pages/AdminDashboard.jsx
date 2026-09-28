@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { apiUrl } from "../lib/api";
 
 function AdminDashboard({ loggedInUser, jobs, students, recruiters, onAddJob, onEditJob, onDeleteJob, refreshAdminData }) {
     const navigate = useNavigate();
@@ -67,7 +68,7 @@ function AdminDashboard({ loggedInUser, jobs, students, recruiters, onAddJob, on
 
         if (isEditing) {
             try {
-                const response = await fetch(`http://localhost:5000/api/jobs/${editingJobId}`, {
+                const response = await fetch(apiUrl(`jobs/${editingJobId}`), {
                     method: "PUT",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify(form)
@@ -86,7 +87,7 @@ function AdminDashboard({ loggedInUser, jobs, students, recruiters, onAddJob, on
             }
         } else {
             try {
-                const response = await fetch("http://localhost:5000/api/jobs", {
+                const response = await fetch(apiUrl("jobs"), {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify(form)
@@ -125,7 +126,7 @@ function AdminDashboard({ loggedInUser, jobs, students, recruiters, onAddJob, on
         if (!window.confirm("Are you sure you want to delete this job post?")) return;
 
         try {
-            const response = await fetch(`http://localhost:5000/api/jobs/${jobId}`, {
+            const response = await fetch(apiUrl(`jobs/${jobId}`), {
                 method: "DELETE"
             });
             if (response.ok) {

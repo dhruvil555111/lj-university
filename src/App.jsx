@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import "./App.css";
+import { apiUrl } from "./lib/api";
 
 // Components
 import Header from "./components/Header";
@@ -32,19 +33,19 @@ function App() {
   // Sync / Load Admin Tables on event (Admin Login or Manual Refresh)
   async function refreshAdminData() {
     try {
-      const studentRes = await fetch("http://localhost:5000/api/students");
+      const studentRes = await fetch(apiUrl("students"));
       if (studentRes.ok) {
         const studentData = await studentRes.ok ? await studentRes.json() : [];
         setStudents(studentData);
       }
 
-      const recruiterRes = await fetch("http://localhost:5000/api/recruiters");
+      const recruiterRes = await fetch(apiUrl("recruiters"));
       if (recruiterRes.ok) {
         const recruiterData = await recruiterRes.json();
         setRecruiters(recruiterData);
       }
 
-      const jobsRes = await fetch("http://localhost:5000/api/jobs");
+      const jobsRes = await fetch(apiUrl("jobs"));
       if (jobsRes.ok) {
         const jobsData = await jobsRes.json();
         setJobs(jobsData);

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { apiUrl } from "../lib/api";
 
 function RecruiterRegister() {
     const navigate = useNavigate();
@@ -63,7 +64,7 @@ function RecruiterRegister() {
         }
 
         try {
-            const response = await fetch("http://localhost:5000/api/recruiters/register", {
+            const response = await fetch(apiUrl("recruiters/register"), {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json"

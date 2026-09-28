@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { apiUrl } from "../lib/api";
 
 function RecruiterDashboard({ loggedInUser, jobs, onAddJob, onEditJob, onDeleteJob }) {
     const navigate = useNavigate();
@@ -81,7 +82,7 @@ function RecruiterDashboard({ loggedInUser, jobs, onAddJob, onEditJob, onDeleteJ
         if (isEditing) {
             // Edit mode
             try {
-                const response = await fetch(`http://localhost:5000/api/jobs/${editingJobId}`, {
+                const response = await fetch(apiUrl(`jobs/${editingJobId}`), {
                     method: "PUT",
                     headers: {
                         "Content-Type": "application/json"
@@ -105,7 +106,7 @@ function RecruiterDashboard({ loggedInUser, jobs, onAddJob, onEditJob, onDeleteJ
         } else {
             // Create mode
             try {
-                const response = await fetch("http://localhost:5000/api/jobs", {
+                const response = await fetch(apiUrl("jobs"), {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json"
@@ -149,7 +150,7 @@ function RecruiterDashboard({ loggedInUser, jobs, onAddJob, onEditJob, onDeleteJ
         }
 
         try {
-            const response = await fetch(`http://localhost:5000/api/jobs/${jobId}`, {
+            const response = await fetch(apiUrl(`jobs/${jobId}`), {
                 method: "DELETE"
             });
 
