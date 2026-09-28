@@ -91,9 +91,7 @@ function AdminLogin({ setLoggedInUser }) {
                 <h2>Admin Login</h2>
                 <p>Authentication portal for LJ placements management</p>
                 <div className="demo-credentials">
-                    <p>💡 <strong>Demo Credentials:</strong></p>
-                    <p>Email: <code>admin@lj.edu</code></p>
-                    <p>Password: <code>admin123</code></p>
+                    <img src="/LJ%20logo.png" alt="LJ University" />
                 </div>
 
                 {errors.apiError && <div className="api-error">{errors.apiError}</div>}

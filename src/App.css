@@ -563,6 +563,12 @@ body {
   font-weight: 800;
 }
 
+.company-logo img {
+  width: 34px;
+  height: 34px;
+  object-fit: contain;
+}
+
 .company-card h3 {
   color: var(--lj-navy);
   margin-bottom: 0.2rem;
@@ -609,6 +615,13 @@ body {
   border-radius: 12px;
   padding: 0.9rem 1rem;
   margin-bottom: 1.2rem;
+}
+
+.demo-credentials img {
+  display: block;
+  width: 100%;
+  height: auto;
+  object-fit: contain;
 }
 
 .demo-credentials p {

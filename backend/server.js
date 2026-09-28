@@ -2,12 +2,36 @@ const express = require('express');
 const cors = require('cors');
 const fs = require('fs');
 const path = require('path');
+const multer = require('multer');
 
 const app = express();
 const PORT = 5000;
 
 app.use(cors());
 app.use(express.json());
+
+const uploadDirectory = path.join(__dirname, 'uploads', 'results');
+fs.mkdirSync(uploadDirectory, { recursive: true });
+
+const resultUpload = multer({
+    storage: multer.diskStorage({
+        destination: uploadDirectory,
+        filename: (req, file, callback) => {
+            const extension = path.extname(file.originalname).toLowerCase();
+            callback(null, `${Date.now()}-${Math.round(Math.random() * 1e9)}${extension}`);
+        }
+    }),
+    limits: { fileSize: 5 * 1024 * 1024 },
+    fileFilter: (req, file, callback) => {
+        const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png'];
+        if (!allowedTypes.includes(file.mimetype)) {
+            return callback(new Error('Result must be a PDF, JPG, or PNG file'));
+        }
+        callback(null, true);
+    }
+});
+
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Helper functions for reading/writing data
 const getFilePath = (filename) => path.join(__dirname, 'data', filename);
@@ -110,23 +134,39 @@ app.get('/api/students', (req, res) => {
     }));
 });
 
-app.post('/api/students/register', (req, res) => {
+app.post('/api/students/register', resultUpload.single('result'), (req, res) => {
     const students = readData('students.json');
-    const { fullName, enrollment, email, department, password } = req.body;
+    const { fullName, enrollment, email, department, password, spiCgpi } = req.body;
 
-    if (!fullName || !enrollment || !email || !department || !password) {
-        return res.status(400).json({ error: "All fields are required" });
+    if (!fullName || !enrollment || !email || !department || !password || spiCgpi === undefined || !req.file) {
+        return res.status(400).json({ error: "All fields, SPI/CGPI percentage, and result are required" });
+    }
+
+    const percentage = Number(spiCgpi);
+    if (!Number.isFinite(percentage) || percentage < 0 || percentage > 100) {
+        return res.status(400).json({ error: "SPI/CGPI percentage must be between 0 and 100" });
     }
 
     if (students.some(s => s.email.toLowerCase() === email.toLowerCase())) {
         return res.status(400).json({ error: "Email is already registered" });
     }
 
-    const newStudent = { fullName, enrollment, email, department, password };
+    const newStudent = {
+        fullName,
+        enrollment,
+        email,
+        department,
+        password,
+        spiCgpi: percentage,
+        result: `/uploads/results/${req.file.filename}`
+    };
     students.push(newStudent);
     writeData('students.json', students);
 
-    res.status(201).json({ message: "Student registered successfully", student: { fullName, enrollment, email, department } });
+    res.status(201).json({
+        message: "Student registered successfully",
+        student: { fullName, enrollment, email, department, spiCgpi: percentage, result: newStudent.result }
+    });
 });
 
 app.post('/api/students/login', (req, res) => {
@@ -149,7 +189,9 @@ app.post('/api/students/login', (req, res) => {
             fullName: student.fullName,
             email: student.email,
             enrollment: student.enrollment,
-            department: student.department
+            department: student.department,
+            spiCgpi: student.spiCgpi,
+            result: student.result
         }
     });
 });
@@ -227,6 +269,21 @@ app.post('/api/admin/login', (req, res) => {
     }
 
     res.status(401).json({ error: "Invalid admin credentials" });
+});
+
+app.use((error, req, res, next) => {
+    if (error instanceof multer.MulterError) {
+        const message = error.code === 'LIMIT_FILE_SIZE'
+            ? "Result file must be 5MB or less"
+            : "Unable to upload result";
+        return res.status(400).json({ error: message });
+    }
+
+    if (error) {
+        return res.status(400).json({ error: error.message || "Unable to upload result" });
+    }
+
+    next();
 });
 
 app.listen(PORT, () => {

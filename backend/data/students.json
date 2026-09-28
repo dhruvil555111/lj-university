@@ -26,5 +26,12 @@
     "email": "dhruvil555@gmail.com",
     "department": "BSc IT",
     "password": "dhruvil@555"
+  },
+  {
+    "fullName": "dhruvil patel",
+    "enrollment": "24004500210056",
+    "email": "dhruvilpatel555@gmail.com",
+    "department": "BSc IT",
+    "password": "dhruvil@111"
   }
 ]

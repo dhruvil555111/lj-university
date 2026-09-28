@@ -96,7 +96,9 @@ function Home({ jobs, loggedInUser, onApply }) {
                 <div className="company-grid">
                     {initialCompanies.map(company => (
                         <div className="company-card" key={company.id}>
-                            <div className="company-logo">{company.logoText}</div>
+                            <div className="company-logo">
+                                <img src={company.logoUrl} alt={`${company.name} logo`} />
+                            </div>
                             <h3>{company.name}</h3>
                             <p>Verify placements</p>
                         </div>

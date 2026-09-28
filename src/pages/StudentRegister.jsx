@@ -10,6 +10,8 @@ function StudentRegister() {
         enrollment: "",
         email: "",
         department: "",
+        spiCgpi: "",
+        result: null,
         password: ""
     });
 
@@ -17,9 +19,10 @@ function StudentRegister() {
 
     // Generic handleChange using spread operator
     function handleChange(e) {
+        const value = e.target.type === "file" ? e.target.files[0] || null : e.target.value;
         setForm({
             ...form,
-            [e.target.name]: e.target.value
+            [e.target.name]: value
         });
         // Clear specific error as user types
         if (errors[e.target.name]) {
@@ -32,18 +35,26 @@ function StudentRegister() {
 
     function validate() {
         let newErrors = {};
+        const fullName = form.fullName.trim();
+        const enrollment = form.enrollment.trim();
+        const email = form.email.trim();
+        const percentage = Number(form.spiCgpi);
 
-        if (!form.fullName.trim()) {
+        if (!fullName) {
             newErrors.fullName = "Full name is required";
+        } else if (!/^[A-Za-z][A-Za-z .'-]{1,49}$/.test(fullName)) {
+            newErrors.fullName = "Please enter a valid full name";
         }
 
-        if (!form.enrollment.trim()) {
+        if (!enrollment) {
             newErrors.enrollment = "Enrollment number is required";
+        } else if (!/^[A-Za-z0-9/-]{3,20}$/.test(enrollment)) {
+            newErrors.enrollment = "Please enter a valid enrollment number";
         }
 
-        if (!form.email.trim()) {
+        if (!email) {
             newErrors.email = "Email is required";
-        } else if (!form.email.includes("@")) {
+        } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
             newErrors.email = "Please enter a valid email address";
         }
 
@@ -51,7 +62,21 @@ function StudentRegister() {
             newErrors.department = "Please select a department";
         }
 
-        if (!form.password) {
+        if (form.spiCgpi === "") {
+            newErrors.spiCgpi = "SPI/CGPI percentage is required";
+        } else if (!Number.isFinite(percentage) || percentage < 0 || percentage > 100) {
+            newErrors.spiCgpi = "Enter a percentage between 0 and 100";
+        }
+
+        if (!form.result) {
+            newErrors.result = "Result is required";
+        } else if (!["application/pdf", "image/jpeg", "image/png"].includes(form.result.type)) {
+            newErrors.result = "Upload a PDF, JPG, or PNG file";
+        } else if (form.result.size > 5 * 1024 * 1024) {
+            newErrors.result = "File size must be 5MB or less";
+        }
+
+        if (!form.password.trim()) {
             newErrors.password = "Password is required";
         } else if (form.password.length < 6) {
             newErrors.password = "Password must be at least 6 characters";
@@ -70,12 +95,16 @@ function StudentRegister() {
 
         try {
             // Post registration payload to backend
+            const payload = new FormData();
+            Object.entries(form).forEach(([key, value]) => {
+                if (value !== null) {
+                    payload.append(key, value);
+                }
+            });
+
             const response = await fetch("http://localhost:5000/api/students/register", {
                 method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify(form)
+                body: payload
             });
 
             const data = await response.json();
@@ -89,6 +118,8 @@ function StudentRegister() {
                     enrollment: "",
                     email: "",
                     department: "",
+                    spiCgpi: "",
+                    result: null,
                     password: ""
                 });
                 setErrors({});
@@ -125,8 +156,40 @@ function StudentRegister() {
                             placeholder="Enter your full name"
                             value={form.fullName}
                             onChange={handleChange}
+                            required
+                            maxLength={50}
                         />
                         {errors.fullName && <span className="field-error">{errors.fullName}</span>}
+                    </div>
+
+                    <div className="form-group">
+                        <label htmlFor="spiCgpi">SPI/CGPI Percentage</label>
+                        <input
+                            id="spiCgpi"
+                            type="number"
+                            name="spiCgpi"
+                            placeholder="Enter percentage (0-100)"
+                            value={form.spiCgpi}
+                            onChange={handleChange}
+                            min="0"
+                            max="100"
+                            step="0.01"
+                            required
+                        />
+                        {errors.spiCgpi && <span className="field-error">{errors.spiCgpi}</span>}
+                    </div>
+
+                    <div className="form-group">
+                        <label htmlFor="result">Result Upload</label>
+                        <input
+                            id="result"
+                            type="file"
+                            name="result"
+                            accept=".pdf,.jpg,.jpeg,.png"
+                            onChange={handleChange}
+                            required
+                        />
+                        {errors.result && <span className="field-error">{errors.result}</span>}
                     </div>
 
                     <div className="form-group">
@@ -137,6 +200,8 @@ function StudentRegister() {
                             placeholder="Enter enrollment number"
                             value={form.enrollment}
                             onChange={handleChange}
+                            required
+                            maxLength={20}
                         />
                         {errors.enrollment && <span className="field-error">{errors.enrollment}</span>}
                     </div>
@@ -149,6 +214,7 @@ function StudentRegister() {
                             placeholder="Enter college email"
                             value={form.email}
                             onChange={handleChange}
+                            required
                         />
                         {errors.email && <span className="field-error">{errors.email}</span>}
                     </div>
@@ -159,6 +225,7 @@ function StudentRegister() {
                             name="department"
                             value={form.department}
                             onChange={handleChange}
+                            required
                         >
                             <option value="">Select Department</option>
                             <option value="BSc IT">BSc IT</option>
@@ -178,6 +245,8 @@ function StudentRegister() {
                             placeholder="Enter password (min 6 characters)"
                             value={form.password}
                             onChange={handleChange}
+                            required
+                            minLength={6}
                         />
                         {errors.password && <span className="field-error">{errors.password}</span>}
                     </div>
