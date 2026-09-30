@@ -64,7 +64,7 @@ function StudentLogin({ setLoggedInUser }) {
 
             if (response.ok) {
                 alert("Login Successful! Welcome, " + data.user.fullName);
-                setLoggedInUser(data.user);
+                setLoggedInUser({ ...data.user, sessionToken: data.user.sessionToken });
                 
                 // Reset form
                 setForm({

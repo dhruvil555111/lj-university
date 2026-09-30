@@ -4,7 +4,7 @@ import Hero from "../components/Hero";
 import JobList from "../components/JobList";
 import { initialStats, initialCompanies } from "../data/initialData";
 
-function Home({ jobs, loggedInUser, onApply }) {
+function Home({ jobs, loggedInUser, onApply, appliedJobs }) {
     const navigate = useNavigate();
     const [searchState, setSearchState] = useState({
         title: "",
@@ -79,6 +79,7 @@ function Home({ jobs, loggedInUser, onApply }) {
                     jobs={featuredJobs}
                     loggedInUser={loggedInUser}
                     onApply={onApply}
+                    appliedJobs={appliedJobs}
                 />
                 <div className="view-all-container">
                     <button className="view-all-btn" onClick={() => navigate("/jobs")}>

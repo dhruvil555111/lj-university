@@ -64,14 +64,14 @@ function AdminLogin({ setLoggedInUser }) {
 
             if (response.ok) {
                 alert("Welcome Admin! Redirecting to Admin Dashboard.");
-                setLoggedInUser(data.user);
-                
+                setLoggedInUser({ ...data.user, sessionToken: data.sessionToken });
+
                 setForm({
                     email: "",
                     password: ""
                 });
                 setErrors({});
-                
+
                 navigate("/admin/dashboard");
             } else {
                 setErrors({
@@ -103,7 +103,7 @@ function AdminLogin({ setLoggedInUser }) {
                         <input
                             type="email"
                             name="email"
-                            placeholder="admin@lj.edu"
+                            placeholder="Enter Email ID"
                             value={form.email}
                             onChange={handleChange}
                         />
@@ -115,7 +115,7 @@ function AdminLogin({ setLoggedInUser }) {
                         <input
                             type="password"
                             name="password"
-                            placeholder="••••••••"
+                            placeholder="Enter Password"
                             value={form.password}
                             onChange={handleChange}
                         />

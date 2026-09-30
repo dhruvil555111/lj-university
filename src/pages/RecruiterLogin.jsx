@@ -64,7 +64,9 @@ function RecruiterLogin({ setLoggedInUser }) {
 
             if (response.ok) {
                 alert("Login Successful! Welcome, " + data.user.fullName + " (" + data.user.companyName + ")");
-                setLoggedInUser(data.user);
+                const session = { ...data.user, sessionToken: data.sessionToken };
+                localStorage.setItem("ljRecruiterSession", JSON.stringify(session));
+                setLoggedInUser(session);
                 
                 setForm({
                     email: "",

@@ -27,3 +27,8 @@ dist-ssr
 *.sw?
 
 .vercel
+
+# Locally persisted recruiter sessions and student applications
+backend/data/recruiter-sessions.json
+backend/data/applications.json
+backend/data/admins.json

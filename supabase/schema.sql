@@ -23,6 +23,7 @@ create table if not exists public.recruiters (
 
 create table if not exists public.jobs (
     id uuid primary key default gen_random_uuid(),
+    portal_job_id text unique,
     title text not null,
     company text not null,
     location text not null,
@@ -36,6 +37,7 @@ create table if not exists public.applications (
     id uuid primary key default gen_random_uuid(),
     student_id uuid not null references public.students(id) on delete cascade,
     job_id uuid not null references public.jobs(id) on delete cascade,
+    portal_job_id text,
     status text not null default 'applied' check (status in ('applied', 'shortlisted', 'rejected', 'selected')),
     created_at timestamptz not null default now(),
     unique (student_id, job_id)

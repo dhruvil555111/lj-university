@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useLocation } from "react-router-dom";
 import JobList from "../components/JobList";
 
-function JobsPage({ jobs, loggedInUser, onApply }) {
+function JobsPage({ jobs, loggedInUser, onApply, appliedJobs }) {
     const routeLocation = useLocation();
     
     // Check if search criteria was passed from Home page search box
@@ -101,6 +101,7 @@ function JobsPage({ jobs, loggedInUser, onApply }) {
                     jobs={filteredJobs} 
                     loggedInUser={loggedInUser} 
                     onApply={onApply} 
+                    appliedJobs={appliedJobs}
                 />
             </div>
         </div>

@@ -3,7 +3,8 @@
     "fullName": "Jane Smith",
     "companyName": "Google",
     "email": "recruiter@google.com",
-    "password": "password123"
+    "password": "password123",
+    "id": "ecb38274-8823-4734-98cb-6e639eef1386"
   },
   {
     "fullName": "Dhruvil Dobariya",
@@ -15,6 +16,7 @@
     "fullName": "dhruvil patel",
     "companyName": "facebook",
     "email": "dhruvilpatel555@gmail.com",
-    "password": "dhruvil@111"
+    "password": "dhruvil@111",
+    "id": "ad710f40-2ac0-4a43-a268-4c0b06132161"
   }
 ]

@@ -1,6 +1,4 @@
-import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import JobCard from "../components/JobCard";
 
 function StudentDashboard({ loggedInUser, appliedJobs }) {
     const navigate = useNavigate();
@@ -67,7 +65,45 @@ function StudentDashboard({ loggedInUser, appliedJobs }) {
                                             <span>📍 {job.location}</span>
                                             <span>💰 {job.salary}</span>
                                         </div>
-                                        <span className="status-badge-applied">Applied ✓</span>
+                                        <span className={`interview-status interview-status-${(job.status || "Applied").toLowerCase().replaceAll(" ", "-")}`}>
+                                            {job.status || "Applied"}
+                                        </span>
+                                        {job.status === "Pending Admin Approval" && (
+                                            <p className="interview-pending-note">
+                                                Your recruiter proposed an interview. Details will be shared after admin approval.
+                                            </p>
+                                        )}
+                                        {job.status === "Rejected" && (
+                                            <p className="interview-rejection-note">
+                                                Interview change requested: {job.rejectionReason || "Please contact the recruiter for details."}
+                                            </p>
+                                        )}
+                                        {job.interview && ["Interview Scheduled", "Completed"].includes(job.status) && (
+                                            <div className="interview-notification" role="status">
+                                                {job.status === "Interview Scheduled" && (
+                                                    <strong>Your interview has been approved and scheduled</strong>
+                                                )}
+                                                {job.status === "Completed" && <strong>Interview completed</strong>}
+                                                <span>{new Date(`${job.interview.date}T00:00:00`).toLocaleDateString("en-IN", {
+                                                    day: "numeric",
+                                                    month: "short",
+                                                    year: "numeric"
+                                                })} at {job.interview.time}</span>
+                                                <span>{job.interview.type}</span>
+                                                {/^https?:\/\//i.test(job.interview.locationOrMeetingLink)
+                                                    ? (
+                                                        <a
+                                                            href={job.interview.locationOrMeetingLink}
+                                                            target="_blank"
+                                                            rel="noreferrer"
+                                                        >
+                                                            Join interview meeting
+                                                        </a>
+                                                    )
+                                                    : <span>{job.interview.locationOrMeetingLink}</span>}
+                                                {job.interview.notes && <span>Notes: {job.interview.notes}</span>}
+                                            </div>
+                                        )}
                                     </div>
                                 ))}
                             </div>

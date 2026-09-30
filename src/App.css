@@ -550,10 +550,12 @@ body {
 }
 
 .company-logo {
-  width: 58px;
-  height: 58px;
+  width: 74px;
+  height: 74px;
   margin: 0 auto 0.8rem;
   border-radius: 50%;
+  padding: 4px;
+  overflow: hidden;
   background: linear-gradient(135deg, var(--lj-blue) 0%, var(--lj-gold) 100%);
   display: flex;
   align-items: center;
@@ -561,12 +563,15 @@ body {
   color: white;
   font-size: 1.5rem;
   font-weight: 800;
+  box-shadow: 0 8px 18px rgba(11, 35, 64, 0.16);
 }
 
 .company-logo img {
-  width: 34px;
-  height: 34px;
-  object-fit: contain;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  object-position: center;
 }
 
 .company-card h3 {
@@ -906,6 +911,66 @@ body {
   padding: 0.25rem 0.55rem;
   font-size: 0.72rem;
   font-weight: 800;
+}
+
+.interview-status {
+  align-self: flex-start;
+  padding: 0.3rem 0.65rem;
+  border-radius: 999px;
+  background: #edf1f5;
+  color: var(--lj-navy);
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+.interview-status-pending-admin-approval {
+  background: #fff3d7;
+  color: #7a4a00;
+}
+
+.interview-status-interview-scheduled,
+.interview-status-completed {
+  background: rgba(13, 141, 109, 0.12);
+  color: #087457;
+}
+
+.interview-status-rejected {
+  background: #fdeaea;
+  color: #a23434;
+}
+
+.interview-notification {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.8rem;
+  border: 1px solid rgba(13, 141, 109, 0.22);
+  border-radius: 12px;
+  background: rgba(13, 141, 109, 0.07);
+  color: var(--lj-text);
+  font-size: 0.84rem;
+  overflow-wrap: anywhere;
+}
+
+.interview-notification strong {
+  color: #087457;
+}
+
+.interview-notification a {
+  color: var(--lj-blue-strong);
+  font-weight: 800;
+  text-decoration: underline;
+}
+
+.interview-pending-note,
+.interview-rejection-note {
+  color: var(--lj-muted);
+  font-size: 0.82rem;
+  overflow-wrap: anywhere;
+}
+
+.interview-rejection-note {
+  color: #a23434;
 }
 
 .dashboard-form {

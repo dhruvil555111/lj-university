@@ -1,6 +1,6 @@
 import JobCard from "./JobCard";
 
-function JobList({ jobs, loggedInUser, onApply, onEdit, onDelete }) {
+function JobList({ jobs, loggedInUser, onApply, onEdit, onDelete, appliedJobs = [] }) {
     if (!jobs || jobs.length === 0) {
         return (
             <div className="no-jobs">
@@ -19,6 +19,7 @@ function JobList({ jobs, loggedInUser, onApply, onEdit, onDelete }) {
                     onApply={onApply}
                     onEdit={onEdit}
                     onDelete={onDelete}
+                    appliedJobs={appliedJobs}
                 />
             ))}
         </div>

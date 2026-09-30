@@ -1,22 +1,12 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiUrl } from "../lib/api";
+import InterviewApprovals from "./InterviewApprovals";
 
 function AdminDashboard({ loggedInUser, jobs, students, recruiters, onAddJob, onEditJob, onDeleteJob, refreshAdminData }) {
     const navigate = useNavigate();
 
-    // Check if admin is logged in
-    if (!loggedInUser || loggedInUser.role !== 'admin') {
-        return (
-            <div className="unauthorized-container">
-                <h2>Access Denied</h2>
-                <p>Please log in as an administrator to access this dashboard.</p>
-                <button onClick={() => navigate("/admin/login")}>Go to Admin Login</button>
-            </div>
-        );
-    }
-
-    // Tab state: 'students' | 'recruiters' | 'jobs'
+    // Tab state: 'students' | 'recruiters' | 'jobs' | 'interviews'
     const [activeTab, setActiveTab] = useState("jobs");
 
     // Single Form state for Add/Edit Job
@@ -32,6 +22,16 @@ function AdminDashboard({ loggedInUser, jobs, students, recruiters, onAddJob, on
     const [errors, setErrors] = useState({});
     const [isEditing, setIsEditing] = useState(false);
     const [editingJobId, setEditingJobId] = useState(null);
+
+    if (!loggedInUser || loggedInUser.role !== 'admin') {
+        return (
+            <div className="unauthorized-container">
+                <h2>Access Denied</h2>
+                <p>Please log in as an administrator to access this dashboard.</p>
+                <button onClick={() => navigate("/admin/login")}>Go to Admin Login</button>
+            </div>
+        );
+    }
 
     // Generic handleChange using spread operator
     function handleChange(e) {
@@ -70,7 +70,10 @@ function AdminDashboard({ loggedInUser, jobs, students, recruiters, onAddJob, on
             try {
                 const response = await fetch(apiUrl(`jobs/${editingJobId}`), {
                     method: "PUT",
-                    headers: { "Content-Type": "application/json" },
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${loggedInUser.sessionToken}`
+                    },
                     body: JSON.stringify(form)
                 });
                 const data = await response.json();
@@ -89,7 +92,10 @@ function AdminDashboard({ loggedInUser, jobs, students, recruiters, onAddJob, on
             try {
                 const response = await fetch(apiUrl("jobs"), {
                     method: "POST",
-                    headers: { "Content-Type": "application/json" },
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${loggedInUser.sessionToken}`
+                    },
                     body: JSON.stringify(form)
                 });
                 const data = await response.json();
@@ -127,7 +133,8 @@ function AdminDashboard({ loggedInUser, jobs, students, recruiters, onAddJob, on
 
         try {
             const response = await fetch(apiUrl(`jobs/${jobId}`), {
-                method: "DELETE"
+                method: "DELETE",
+                headers: { Authorization: `Bearer ${loggedInUser.sessionToken}` }
             });
             if (response.ok) {
                 alert("Job Deleted Successfully!");
@@ -201,6 +208,12 @@ function AdminDashboard({ loggedInUser, jobs, students, recruiters, onAddJob, on
                     onClick={() => setActiveTab("recruiters")}
                 >
                     View Recruiters ({recruiters.length})
+                </button>
+                <button
+                    className={activeTab === "interviews" ? "active" : ""}
+                    onClick={() => setActiveTab("interviews")}
+                >
+                    Interview Approvals
                 </button>
             </div>
 
@@ -392,6 +405,10 @@ function AdminDashboard({ loggedInUser, jobs, students, recruiters, onAddJob, on
                             </table>
                         )}
                     </div>
+                )}
+
+                {activeTab === "interviews" && (
+                    <InterviewApprovals sessionToken={loggedInUser.sessionToken} />
                 )}
             </div>
         </div>

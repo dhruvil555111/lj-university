@@ -1,106 +1,215 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { apiUrl } from "../lib/api";
 
+// Single source of truth for the dropdown AND validation (no duplicate MCA)
+const DEPARTMENTS = [
+    "BSc IT", "MSc IT", "BCA", "MCA", "BTech CS", "BBA", "BBA FBE",
+    "B.com", "M.com", "B.pharm", "M.pharm", "B.Ed", "M.Ed",
+    "B.A", "M.A", "B.Arch", "M.Arch"
+];
+
+const ALLOWED_FILE_TYPES = ["application/pdf", "image/jpeg", "image/png"];
+const ALLOWED_FILE_EXTENSIONS = ["pdf", "jpg", "jpeg", "png"];
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+
+const INITIAL_FORM = {
+    fullName: "",
+    enrollment: "",
+    email: "",
+    department: "",
+    spiCgpi: "",
+    result: null,
+    password: "",
+    confirmPassword: ""
+};
+
+// Order matches the on-screen order so we can focus the first invalid field
+const FIELD_ORDER = [
+    "fullName",
+    "spiCgpi",
+    "result",
+    "enrollment",
+    "email",
+    "department",
+    "password",
+    "confirmPassword"
+];
+
+// Validates ONE field. Returns an error message, or "" if valid.
+function validateField(name, value, form) {
+    switch (name) {
+        case "fullName": {
+            const v = value.trim();
+            if (!v) return "Full name is required";
+            if (v.length < 2) return "Full name must be at least 2 characters";
+            if (v.length > 50) return "Full name must be 50 characters or less";
+            if (!/^[A-Za-z][A-Za-z .'-]*$/.test(v)) {
+                return "Use only letters, spaces, apostrophes, dots and hyphens";
+            }
+            if (/\s{2,}/.test(v)) return "Remove extra spaces between words";
+            return "";
+        }
+
+        case "enrollment": {
+            const v = value.trim();
+            if (!v) return "Enrollment number is required";
+            if (v.length < 3) return "Enrollment number must be at least 3 characters";
+            if (v.length > 20) return "Enrollment number must be 20 characters or less";
+            if (!/^[A-Za-z0-9/-]+$/.test(v)) {
+                return "Use only letters, numbers, / and -";
+            }
+            return "";
+        }
+
+        case "email": {
+            const v = value.trim();
+            if (!v) return "Email is required";
+            if (v.length > 100) return "Email must be 100 characters or less";
+            if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v)) {
+                return "Please enter a valid email address";
+            }
+            // Uncomment to restrict to your university domain:
+            // if (!v.toLowerCase().endsWith("@ljku.edu.in")) {
+            //     return "Please use your college email address";
+            // }
+            return "";
+        }
+
+        case "department": {
+            if (!value) return "Please select a department";
+            if (!DEPARTMENTS.includes(value)) return "Please select a valid department";
+            return "";
+        }
+
+        case "spiCgpi": {
+            if (String(value).trim() === "") return "SPI/CGPI percentage is required";
+            const num = Number(value);
+            if (!Number.isFinite(num)) return "Enter a valid number";
+            if (num < 0 || num > 100) return "Enter a percentage between 0 and 100";
+            if (!/^\d{1,3}(\.\d{1,2})?$/.test(String(value).trim())) {
+                return "Use at most 2 decimal places";
+            }
+            return "";
+        }
+
+        case "result": {
+            if (!value) return "Result is required";
+            const ext = value.name.split(".").pop().toLowerCase();
+            if (!ALLOWED_FILE_TYPES.includes(value.type) || !ALLOWED_FILE_EXTENSIONS.includes(ext)) {
+                return "Upload a PDF, JPG, or PNG file";
+            }
+            if (value.size === 0) return "The selected file is empty";
+            if (value.size > MAX_FILE_SIZE) return "File size must be 5MB or less";
+            return "";
+        }
+
+        case "password": {
+            if (!value) return "Password is required";
+            if (/\s/.test(value)) return "Password cannot contain spaces";
+            if (value.length < 6) return "Password must be at least 6 characters";
+            if (value.length > 64) return "Password must be 64 characters or less";
+            if (!/[A-Za-z]/.test(value) || !/\d/.test(value)) {
+                return "Password must include at least one letter and one number";
+            }
+            return "";
+        }
+
+        case "confirmPassword": {
+            if (!value) return "Please confirm your password";
+            if (value !== form.password) return "Passwords do not match";
+            return "";
+        }
+
+        default:
+            return "";
+    }
+}
+
 function StudentRegister() {
     const navigate = useNavigate();
+    const formRef = useRef(null);
 
-    // Form single state object as per requirements
-    const [form, setForm] = useState({
-        fullName: "",
-        enrollment: "",
-        email: "",
-        department: "",
-        spiCgpi: "",
-        result: null,
-        password: ""
-    });
-
+    const [form, setForm] = useState(INITIAL_FORM);
     const [errors, setErrors] = useState({});
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
-    // Generic handleChange using spread operator
     function handleChange(e) {
-        const value = e.target.type === "file" ? e.target.files[0] || null : e.target.value;
-        setForm({
-            ...form,
-            [e.target.name]: value
+        const { name, type, value, files } = e.target;
+        const newValue = type === "file" ? files[0] || null : value;
+
+        const nextForm = { ...form, [name]: newValue };
+        setForm(nextForm);
+
+        setErrors((prev) => {
+            const next = { ...prev, apiError: "" };
+
+            // Re-check a field live only once it has already shown an error
+            if (prev[name]) {
+                next[name] = validateField(name, newValue, nextForm);
+            }
+
+            // Keep confirm-password in sync when the password changes
+            if (name === "password" && prev.confirmPassword) {
+                next.confirmPassword = validateField("confirmPassword", nextForm.confirmPassword, nextForm);
+            }
+            return next;
         });
-        // Clear specific error as user types
-        if (errors[e.target.name]) {
-            setErrors({
-                ...errors,
-                [e.target.name]: ""
-            });
-        }
+    }
+
+    // Validate a field when the user leaves it
+    function handleBlur(e) {
+        const { name, type, value, files } = e.target;
+        const fieldValue = type === "file" ? files[0] || null : value;
+        setErrors((prev) => ({
+            ...prev,
+            [name]: validateField(name, fieldValue, form)
+        }));
     }
 
     function validate() {
-        let newErrors = {};
-        const fullName = form.fullName.trim();
-        const enrollment = form.enrollment.trim();
-        const email = form.email.trim();
-        const percentage = Number(form.spiCgpi);
-
-        if (!fullName) {
-            newErrors.fullName = "Full name is required";
-        } else if (!/^[A-Za-z][A-Za-z .'-]{1,49}$/.test(fullName)) {
-            newErrors.fullName = "Please enter a valid full name";
-        }
-
-        if (!enrollment) {
-            newErrors.enrollment = "Enrollment number is required";
-        } else if (!/^[A-Za-z0-9/-]{3,20}$/.test(enrollment)) {
-            newErrors.enrollment = "Please enter a valid enrollment number";
-        }
-
-        if (!email) {
-            newErrors.email = "Email is required";
-        } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
-            newErrors.email = "Please enter a valid email address";
-        }
-
-        if (!form.department) {
-            newErrors.department = "Please select a department";
-        }
-
-        if (form.spiCgpi === "") {
-            newErrors.spiCgpi = "SPI/CGPI percentage is required";
-        } else if (!Number.isFinite(percentage) || percentage < 0 || percentage > 100) {
-            newErrors.spiCgpi = "Enter a percentage between 0 and 100";
-        }
-
-        if (!form.result) {
-            newErrors.result = "Result is required";
-        } else if (!["application/pdf", "image/jpeg", "image/png"].includes(form.result.type)) {
-            newErrors.result = "Upload a PDF, JPG, or PNG file";
-        } else if (form.result.size > 5 * 1024 * 1024) {
-            newErrors.result = "File size must be 5MB or less";
-        }
-
-        if (!form.password.trim()) {
-            newErrors.password = "Password is required";
-        } else if (form.password.length < 6) {
-            newErrors.password = "Password must be at least 6 characters";
-        }
+        const newErrors = {};
+        FIELD_ORDER.forEach((name) => {
+            const message = validateField(name, form[name], form);
+            if (message) newErrors[name] = message;
+        });
 
         setErrors(newErrors);
+
+        // Move focus to the first invalid field
+        const firstInvalid = FIELD_ORDER.find((name) => newErrors[name]);
+        if (firstInvalid && formRef.current) {
+            const el = formRef.current.elements[firstInvalid];
+            if (el) el.focus();
+        }
+
         return Object.keys(newErrors).length === 0;
     }
 
     async function handleSubmit(e) {
-        e.preventDefault(); // Prevent page reload
+        e.preventDefault();
 
-        if (!validate()) {
-            return;
-        }
+        if (isSubmitting) return; // block double submits
+        if (!validate()) return;
+
+        setIsSubmitting(true);
 
         try {
-            // Post registration payload to backend
+            // Send cleaned values (the same ones that were validated)
+            const cleaned = {
+                fullName: form.fullName.trim().replace(/\s+/g, " "),
+                enrollment: form.enrollment.trim().toUpperCase(),
+                email: form.email.trim().toLowerCase(),
+                department: form.department,
+                spiCgpi: String(form.spiCgpi).trim(),
+                result: form.result,
+                password: form.password
+                // confirmPassword is intentionally NOT sent
+            };
+
             const payload = new FormData();
-            Object.entries(form).forEach(([key, value]) => {
-                if (value !== null) {
-                    payload.append(key, value);
-                }
+            Object.entries(cleaned).forEach(([key, value]) => {
+                if (value !== null) payload.append(key, value);
             });
 
             const response = await fetch(apiUrl("students/register"), {
@@ -108,27 +217,25 @@ function StudentRegister() {
                 body: payload
             });
 
-            const data = await response.json();
+            // The server may return a non-JSON error page; don't crash on it
+            let data = {};
+            try {
+                data = await response.json();
+            } catch {
+                data = {};
+            }
 
             if (response.ok) {
                 alert("Student Registration Successful! Please log in.");
-                
-                // Reset form
-                setForm({
-                    fullName: "",
-                    enrollment: "",
-                    email: "",
-                    department: "",
-                    spiCgpi: "",
-                    result: null,
-                    password: ""
-                });
+                setForm(INITIAL_FORM);
                 setErrors({});
-                
-                // Redirect
                 navigate("/student/login");
             } else {
+                // Support both { error: "..." } and { errors: { field: "..." } }
+                const fieldErrors =
+                    data.errors && typeof data.errors === "object" ? data.errors : {};
                 setErrors({
+                    ...fieldErrors,
                     apiError: data.error || "Registration failed. Try again."
                 });
             }
@@ -137,7 +244,29 @@ function StudentRegister() {
             setErrors({
                 apiError: "Failed to connect to backend server. Make sure it is running."
             });
+        } finally {
+            setIsSubmitting(false);
         }
+    }
+
+    // Shared accessibility props for every field
+    function fieldProps(name) {
+        return {
+            id: name,
+            name,
+            onChange: handleChange,
+            onBlur: handleBlur,
+            "aria-invalid": errors[name] ? "true" : "false",
+            "aria-describedby": errors[name] ? `${name}-error` : undefined
+        };
+    }
+
+    function renderError(name) {
+        return errors[name] ? (
+            <span id={`${name}-error`} className="field-error" role="alert">
+                {errors[name]}
+            </span>
+        ) : null;
     }
 
     return (
@@ -146,113 +275,118 @@ function StudentRegister() {
                 <h2>Student Registration</h2>
                 <p>Register to apply for placements at LJ University</p>
 
-                {errors.apiError && <div className="api-error">{errors.apiError}</div>}
+                {errors.apiError && (
+                    <div className="api-error" role="alert">{errors.apiError}</div>
+                )}
 
-                <form onSubmit={handleSubmit} className="auth-form">
+                {/* noValidate turns off the browser's popups so our messages show */}
+                <form ref={formRef} onSubmit={handleSubmit} className="auth-form" noValidate>
                     <div className="form-group">
-                        <label>Full Name</label>
+                        <label htmlFor="fullName">Full Name</label>
                         <input
+                            {...fieldProps("fullName")}
                             type="text"
-                            name="fullName"
                             placeholder="Enter your full name"
                             value={form.fullName}
-                            onChange={handleChange}
-                            required
                             maxLength={50}
+                            autoComplete="name"
                         />
-                        {errors.fullName && <span className="field-error">{errors.fullName}</span>}
+                        {renderError("fullName")}
                     </div>
 
                     <div className="form-group">
                         <label htmlFor="spiCgpi">SPI/CGPI Percentage</label>
                         <input
-                            id="spiCgpi"
+                            {...fieldProps("spiCgpi")}
                             type="number"
-                            name="spiCgpi"
+                            inputMode="decimal"
                             placeholder="Enter percentage (0-100)"
                             value={form.spiCgpi}
-                            onChange={handleChange}
                             min="0"
                             max="100"
                             step="0.01"
-                            required
                         />
-                        {errors.spiCgpi && <span className="field-error">{errors.spiCgpi}</span>}
+                        {renderError("spiCgpi")}
                     </div>
 
                     <div className="form-group">
                         <label htmlFor="result">Result Upload</label>
                         <input
-                            id="result"
+                            {...fieldProps("result")}
                             type="file"
-                            name="result"
                             accept=".pdf,.jpg,.jpeg,.png"
-                            onChange={handleChange}
-                            required
                         />
-                        {errors.result && <span className="field-error">{errors.result}</span>}
+                        {renderError("result")}
                     </div>
 
                     <div className="form-group">
-                        <label>Enrollment Number</label>
+                        <label htmlFor="enrollment">Enrollment Number</label>
                         <input
+                            {...fieldProps("enrollment")}
                             type="text"
-                            name="enrollment"
                             placeholder="Enter enrollment number"
                             value={form.enrollment}
-                            onChange={handleChange}
-                            required
                             maxLength={20}
                         />
-                        {errors.enrollment && <span className="field-error">{errors.enrollment}</span>}
+                        {renderError("enrollment")}
                     </div>
 
                     <div className="form-group">
-                        <label>Email Address</label>
+                        <label htmlFor="email">Email Address</label>
                         <input
+                            {...fieldProps("email")}
                             type="email"
-                            name="email"
                             placeholder="Enter college email"
                             value={form.email}
-                            onChange={handleChange}
-                            required
+                            maxLength={100}
+                            autoComplete="email"
                         />
-                        {errors.email && <span className="field-error">{errors.email}</span>}
+                        {renderError("email")}
                     </div>
 
                     <div className="form-group">
-                        <label>Department</label>
+                        <label htmlFor="department">Department</label>
                         <select
-                            name="department"
+                            {...fieldProps("department")}
                             value={form.department}
-                            onChange={handleChange}
-                            required
                         >
                             <option value="">Select Department</option>
-                            <option value="BSc IT">BSc IT</option>
-                            <option value="MSc IT">MSc IT</option>
-                            <option value="BCA">BCA</option>
-                            <option value="MCA">MCA</option>
-                            <option value="BTech CS">BTech CS</option>
+                            {DEPARTMENTS.map((dept) => (
+                                <option key={dept} value={dept}>{dept}</option>
+                            ))}
                         </select>
-                        {errors.department && <span className="field-error">{errors.department}</span>}
+                        {renderError("department")}
                     </div>
 
                     <div className="form-group">
-                        <label>Password</label>
+                        <label htmlFor="password">Password</label>
                         <input
+                            {...fieldProps("password")}
                             type="password"
-                            name="password"
-                            placeholder="Enter password (min 6 characters)"
+                            placeholder="Min 6 characters, with a letter and a number"
                             value={form.password}
-                            onChange={handleChange}
-                            required
-                            minLength={6}
+                            maxLength={64}
+                            autoComplete="new-password"
                         />
-                        {errors.password && <span className="field-error">{errors.password}</span>}
+                        {renderError("password")}
                     </div>
 
-                    <button type="submit" className="auth-btn">Register</button>
+                    <div className="form-group">
+                        <label htmlFor="confirmPassword">Confirm Password</label>
+                        <input
+                            {...fieldProps("confirmPassword")}
+                            type="password"
+                            placeholder="Re-enter your password"
+                            value={form.confirmPassword}
+                            maxLength={64}
+                            autoComplete="new-password"
+                        />
+                        {renderError("confirmPassword")}
+                    </div>
+
+                    <button type="submit" className="auth-btn" disabled={isSubmitting}>
+                        {isSubmitting ? "Registering..." : "Register"}
+                    </button>
                 </form>
 
                 <p className="auth-redirect">

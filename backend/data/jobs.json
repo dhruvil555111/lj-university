@@ -1,12 +1,15 @@
 [
   {
     "id": 6,
-    "title": "ddd",
+    "title": "AIML",
     "company": "facebook",
-    "location": "ddd",
-    "salary": "0000",
+    "recruiterEmail": "dhruvilpatel555@gmail.com",
+    "location": "mumbai",
+    "salary": "15 LPA",
     "jobType": "Internship",
-    "description": "ggxgx"
+    "description": "xyz",
+    "deadline": "2026-10-14",
+    "recruiterId": "ad710f40-2ac0-4a43-a268-4c0b06132161"
   },
   {
     "id": 5,
@@ -15,7 +18,9 @@
     "location": "mumbai",
     "salary": "15 LPA",
     "jobType": "Full Time",
-    "description": "more than 8 CGPA"
+    "description": "more than 8 CGP",
+    "recruiterId": "ecb38274-8823-4734-98cb-6e639eef1386",
+    "recruiterEmail": "recruiter@google.com"
   },
   {
     "id": 1,

@@ -45,10 +45,10 @@ export const initialStats = [
 ];
 
 export const initialCompanies = [
-  { id: 1, name: "Google", logoUrl: "/company-logos/google.svg" },
-  { id: 2, name: "TCS", logoUrl: "/company-logos/tcs.svg" },
-  { id: 3, name: "Infosys", logoUrl: "/company-logos/infosys.svg" },
-  { id: 4, name: "Wipro", logoUrl: "/company-logos/wipro.svg" },
-  { id: 5, name: "Capgemini", logoUrl: "/company-logos/capgemini.png" },
-  { id: 6, name: "Amazon", logoUrl: "/company-logos/amazon.png" }
+  { id: 1, name: "Google", logoUrl: "/company-logos/google3.jpeg" },
+  { id: 2, name: "TCS", logoUrl: "/company-logos/tcs3.jpeg" },
+  { id: 3, name: "Infosys", logoUrl: "/company-logos/infosys3.jpeg" },
+  { id: 4, name: "Wipro", logoUrl: "/company-logos/wipro3.jpeg" },
+  { id: 5, name: "Capgemini", logoUrl: "/company-logos/capgemini3.jpeg" },
+  { id: 6, name: "Amazon", logoUrl: "/company-logos/amazon3.jpeg" }
 ];
