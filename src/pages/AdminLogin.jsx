@@ -64,7 +64,13 @@ function AdminLogin({ setLoggedInUser }) {
 
             if (response.ok) {
                 alert("Welcome Admin! Redirecting to Admin Dashboard.");
-                setLoggedInUser({ ...data.user, sessionToken: data.sessionToken });
+                const session = { ...data.user, sessionToken: data.sessionToken };
+                try {
+                    localStorage.setItem("ljRecruiterSession", JSON.stringify(session));
+                } catch (storageError) {
+                    console.error("Unable to persist admin session in browser storage:", storageError);
+                }
+                setLoggedInUser(session);
 
                 setForm({
                     email: "",

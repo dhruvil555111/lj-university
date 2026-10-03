@@ -147,6 +147,10 @@ function findSession(req, role) {
     const token = getBearerToken(req);
     if (!token) return null;
 
+    if (role === 'admin' && process.env.VERCEL === '1') {
+        return verifyAdminSession(token);
+    }
+
     const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
     const now = Date.now();
     return readData('recruiter-sessions.json').find(session => {
@@ -159,6 +163,57 @@ function findSession(req, role) {
     }) || null;
 }
 
+function getAdminSessionKey() {
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!serviceRoleKey) {
+        throw new Error('SUPABASE_SERVICE_ROLE_KEY must be set to sign admin sessions');
+    }
+    return crypto.createHash('sha256').update(`lj-university-admin-session:${serviceRoleKey}`).digest();
+}
+
+function createAdminSession(email) {
+    if (process.env.VERCEL !== '1') return createSession('admin', email);
+
+    const payload = Buffer.from(JSON.stringify({
+        role: 'admin',
+        email,
+        expiresAt: Date.now() + 30 * 24 * 60 * 60 * 1000
+    })).toString('base64url');
+    const signature = crypto.createHmac('sha256', getAdminSessionKey()).update(payload).digest('base64url');
+    return `${payload}.${signature}`;
+}
+
+function verifyAdminSession(token) {
+    const [payload, signature, extra] = token.split('.');
+    if (!payload || !signature || extra) return null;
+
+    try {
+        const expectedSignature = crypto.createHmac('sha256', getAdminSessionKey()).update(payload).digest();
+        const actualSignature = Buffer.from(signature, 'base64url');
+        if (actualSignature.length !== expectedSignature.length
+            || !crypto.timingSafeEqual(actualSignature, expectedSignature)) {
+            return null;
+        }
+
+        const session = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
+        if (session.role !== 'admin'
+            || typeof session.email !== 'string'
+            || !Number.isFinite(session.expiresAt)
+            || session.expiresAt <= Date.now()) {
+            return null;
+        }
+
+        return {
+            ...session,
+            tokenHash: crypto.createHash('sha256').update(token).digest('hex'),
+            stateless: true
+        };
+    } catch (error) {
+        if (error.message === 'SUPABASE_SERVICE_ROLE_KEY must be set to sign admin sessions') throw error;
+        return null;
+    }
+}
+
 function authenticateSession(role) {
     return (req, res, next) => {
         const session = findSession(req, role);
@@ -166,8 +221,10 @@ function authenticateSession(role) {
             return res.status(401).json({ error: 'Your session is invalid or has expired. Please log in again.' });
         }
 
-        const user = readData(role === 'recruiter' ? 'recruiters.json' : 'admins.json')
-            .find(account => account.email.toLowerCase() === session.email.toLowerCase());
+        const user = role === 'admin' && session.stateless
+            ? { email: session.email, fullName: 'LJ Admin' }
+            : readData(role === 'recruiter' ? 'recruiters.json' : 'admins.json')
+                .find(account => account.email.toLowerCase() === session.email.toLowerCase());
         if (!user) {
             return res.status(401).json({ error: 'Your account could not be verified. Please log in again.' });
         }
@@ -987,6 +1044,10 @@ app.post('/api/recruiters/logout', requireRecruiter, (req, res) => {
 });
 
 app.post('/api/admin/logout', requireAdmin, (req, res) => {
+    if (process.env.VERCEL === '1') {
+        return res.json({ message: 'Logged out successfully.' });
+    }
+
     const sessions = readData('recruiter-sessions.json')
         .filter(session => session.tokenHash !== req.sessionTokenHash);
     if (!writeData('recruiter-sessions.json', sessions)) {
@@ -1269,14 +1330,24 @@ app.post('/api/admin/login', (req, res) => {
 
     // Dummy credentials
     if (email === 'admin@lj.edu' && password === 'admin123') {
-        const admins = readData('admins.json');
-        if (!admins.some(admin => admin.email === email)) {
-            admins.push({ email, fullName: 'LJ Admin' });
-            if (!writeData('admins.json', admins)) {
-                return res.status(500).json({ error: 'Unable to start admin session.' });
+        if (process.env.VERCEL !== '1') {
+            const admins = readData('admins.json');
+            if (!admins.some(admin => admin.email === email)) {
+                admins.push({ email, fullName: 'LJ Admin' });
+                if (!writeData('admins.json', admins)) {
+                    return res.status(500).json({ error: 'Unable to start admin session.' });
+                }
             }
         }
-        const sessionToken = createSession('admin', email);
+
+        let sessionToken;
+        try {
+            sessionToken = createAdminSession(email);
+        } catch (error) {
+            console.error('Unable to create admin session:', error.message);
+            return res.status(500).json({ error: 'Unable to start admin session.' });
+        }
+
         if (!sessionToken) {
             return res.status(500).json({ error: 'Unable to start admin session.' });
         }

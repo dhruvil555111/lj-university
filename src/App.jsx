@@ -31,7 +31,7 @@ function App() {
   const [loggedInUser, setLoggedInUser] = useState(() => {
     try {
       const session = JSON.parse(localStorage.getItem("ljRecruiterSession"));
-      return session?.role === "recruiter" ? session : null;
+      return ["recruiter", "admin"].includes(session?.role) ? session : null;
     } catch {
       return null;
     }
