@@ -1,13 +1,37 @@
 [
   {
-    "id": 6,
+    "id": 8,
     "title": "AIML",
     "company": "facebook",
+    "recruiterId": "ad710f40-2ac0-4a43-a268-4c0b06132161",
     "recruiterEmail": "dhruvilpatel555@gmail.com",
     "location": "mumbai",
+    "salary": "22000",
+    "jobType": "Full Time",
+    "description": "kkkkkk",
+    "deadline": "2026-10-05"
+  },
+  {
+    "id": 7,
+    "title": "Software Development Engineer (SDE)",
+    "company": "Amazon",
+    "recruiterId": "1827df22-f887-40c8-96c0-53e92d44eeed",
+    "recruiterEmail": "amazon111@gmail.com",
+    "location": "Bangalore, India",
     "salary": "15 LPA",
-    "jobType": "Internship",
-    "description": "xyz",
+    "jobType": "Full Time",
+    "description": "Amazon is hiring Software Development Engineers (SDE) to design, develop, test, and maintain scalable software applications.\n\nRequirements:\n• Good knowledge of programming and problem solving\n• Knowledge of Data Structures and Algorithms\n• Basic knowledge of databases and software development\n• Good communication and teamwork skills\n\nResponsibilities:\n• Develop and maintain high-quality software\n• Write clean and efficient code\n• Work with team members to build scalable solutions\n• Test and debug applications",
+    "deadline": "2026-10-31"
+  },
+  {
+    "id": 6,
+    "title": "Software Development Engineer (SDE)",
+    "company": "Amazon",
+    "recruiterEmail": "dhruvilpatel555@gmail.com",
+    "location": "Bangalore",
+    "salary": "15 LPA",
+    "jobType": "Full Time",
+    "description": "Amazon is hiring Software Development Engineers to design, develop, test, and maintain scalable software applications. Candidates should have knowledge of programming, data structures, algorithms, databases, and problem-solving. The role involves working with a team to build reliable and high-performance software solutions.",
     "deadline": "2026-10-14",
     "recruiterId": "ad710f40-2ac0-4a43-a268-4c0b06132161"
   },
