@@ -40,6 +40,7 @@ body {
 .header-inner {
   width: min(1280px, calc(100% - 32px));
   margin: 0 auto;
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -64,6 +65,10 @@ body {
 .main-nav {
   display: flex;
   align-items: center;
+}
+
+.nav-toggle {
+  display: none;
 }
 
 .nav-links {
@@ -1197,18 +1202,93 @@ body {
 
 @media (max-width: 768px) {
   .header-inner {
-    flex-direction: column;
-    justify-content: center;
-    padding: 14px 0;
+    flex-direction: row;
+    justify-content: flex-start;
+    padding: 8px 0;
   }
 
   .brand-logo {
-    width: min(420px, 90vw);
-    height: 64px;
+    width: min(300px, 64vw);
+    height: 56px;
+  }
+
+  .nav-toggle {
+    display: flex;
+    width: 42px;
+    height: 42px;
+    flex: 0 0 auto;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    margin-left: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.06);
+    transition: background 0.2s ease, border-color 0.2s ease;
+  }
+
+  .nav-toggle:hover,
+  .nav-toggle:focus-visible {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.36);
+  }
+
+  .nav-toggle span {
+    display: block;
+    width: 18px;
+    height: 2px;
+    border-radius: 2px;
+    background: #fff;
+  }
+
+  .main-nav {
+    position: absolute;
+    top: calc(100% - 2px);
+    left: 0;
+    display: block;
+    width: min(340px, calc(100vw - 20px));
+    max-height: 0;
+    overflow: hidden;
+    visibility: hidden;
+    opacity: 0;
+    transform: translateY(-8px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 0 0 14px 14px;
+    background: #0b2340;
+    box-shadow: 0 16px 30px rgba(11, 35, 64, 0.22);
+    transition: max-height 0.25s ease, opacity 0.2s ease, transform 0.2s ease, visibility 0s linear 0.25s;
+  }
+
+  .main-nav.is-open {
+    max-height: 70vh;
+    overflow-y: auto;
+    visibility: visible;
+    opacity: 1;
+    transform: translateY(0);
+    transition-delay: 0s;
   }
 
   .nav-links {
-    justify-content: center;
+    align-items: stretch;
+    flex-direction: column;
+    gap: 0.2rem;
+    padding: 0.6rem;
+  }
+
+  .nav-links li {
+    display: flex;
+    width: 100%;
+  }
+
+  .nav-links a,
+  .nav-links button {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .nav-links .welcome-tag {
+    justify-content: flex-start;
   }
 
   .search-box {
