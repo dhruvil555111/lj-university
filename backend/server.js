@@ -147,8 +147,8 @@ function findSession(req, role) {
     const token = getBearerToken(req);
     if (!token) return null;
 
-    if (role === 'admin' && process.env.VERCEL === '1') {
-        return verifyAdminSession(token);
+    if (['admin', 'recruiter'].includes(role) && process.env.VERCEL === '1') {
+        return verifyServerlessSession(token, role);
     }
 
     const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
@@ -171,11 +171,9 @@ function getAdminSessionKey() {
     return crypto.createHash('sha256').update(`lj-university-admin-session:${serviceRoleKey}`).digest();
 }
 
-function createAdminSession(email) {
-    if (process.env.VERCEL !== '1') return createSession('admin', email);
-
+function createServerlessSession(role, email) {
     const payload = Buffer.from(JSON.stringify({
-        role: 'admin',
+        role,
         email,
         expiresAt: Date.now() + 30 * 24 * 60 * 60 * 1000
     })).toString('base64url');
@@ -183,7 +181,7 @@ function createAdminSession(email) {
     return `${payload}.${signature}`;
 }
 
-function verifyAdminSession(token) {
+function verifyServerlessSession(token, role) {
     const [payload, signature, extra] = token.split('.');
     if (!payload || !signature || extra) return null;
 
@@ -196,7 +194,7 @@ function verifyAdminSession(token) {
         }
 
         const session = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
-        if (session.role !== 'admin'
+        if (session.role !== role
             || typeof session.email !== 'string'
             || !Number.isFinite(session.expiresAt)
             || session.expiresAt <= Date.now()) {
@@ -236,6 +234,10 @@ function authenticateSession(role) {
 }
 
 function createSession(role, email) {
+    if (process.env.VERCEL === '1') {
+        return createServerlessSession(role, email);
+    }
+
     const sessions = readData('recruiter-sessions.json')
         .filter(session => Date.parse(session.expiresAt) > Date.now());
     const token = crypto.randomBytes(32).toString('hex');
@@ -1035,6 +1037,10 @@ app.get('/api/students/me/applications', async (req, res) => {
 });
 
 app.post('/api/recruiters/logout', requireRecruiter, (req, res) => {
+    if (process.env.VERCEL === '1') {
+        return res.json({ message: 'Logged out successfully.' });
+    }
+
     const sessions = readData('recruiter-sessions.json')
         .filter(session => session.tokenHash !== req.sessionTokenHash);
     if (!writeData('recruiter-sessions.json', sessions)) {
@@ -1342,7 +1348,7 @@ app.post('/api/admin/login', (req, res) => {
 
         let sessionToken;
         try {
-            sessionToken = createAdminSession(email);
+            sessionToken = createSession('admin', email);
         } catch (error) {
             console.error('Unable to create admin session:', error.message);
             return res.status(500).json({ error: 'Unable to start admin session.' });
