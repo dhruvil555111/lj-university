@@ -20,7 +20,7 @@ function Footer() {
 
                 <div className="footer-links">
                     <h4>Contact</h4>
-                    <a href="mailto:placements@ljuniversity.ac.in">placements@ljuniversity.ac.in</a>
+                    <a href="mailto:ljuniversity.placement@gmail.com">ljuniversity.placement@gmail.com</a>
                     <a href="tel:+917999999999">+91 79999 99999</a>
                     <span>Ahmedabad, Gujarat</span>
                 </div>
