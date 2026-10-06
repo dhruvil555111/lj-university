@@ -1944,5 +1944,532 @@ body {
   .admin-verification-company .rh-company-logo-small {
     width: 40px;
     height: 40px;
+@media (max-width: 940px) {
+  .footer-inner {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .footer-brand {
+    grid-column: 1 / -1;
+  }
+
+  .admin-table-container {
+    min-width: 0;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+  }
+
+  .admin-table {
+    min-width: 620px;
+  }
+}
+
+@media (max-width: 768px) {
+  .header-inner {
+    width: min(100% - 28px, 1280px);
+    gap: 0.65rem;
+  }
+
+  .brand-logo {
+    width: min(360px, 82vw);
+    height: 56px;
+  }
+
+  .main-nav {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .nav-links {
+    width: 100%;
+    gap: 0.3rem;
+  }
+
+  .nav-links a,
+  .nav-links button {
+    padding-right: 0.7rem;
+    padding-left: 0.7rem;
+  }
+
+  .welcome-tag {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .main-content {
+    padding-top: 1.35rem;
+    padding-bottom: 3rem;
+  }
+
+  .hero {
+    gap: 1.25rem;
+    padding-top: 0.75rem;
+  }
+
+  .hero-visual {
+    width: min(100%, 600px);
+  }
+
+  .hero-image {
+    height: clamp(250px, 55vw, 380px);
+  }
+
+  .search-box {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .search-box button {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+
+  .auth-container {
+    width: 100%;
+    padding: 1rem 0;
+  }
+
+  .auth-card {
+    width: min(100%, 560px);
+  }
+
+  .dashboard-header {
+    padding: 1.5rem;
+  }
+
+  .admin-dashboard .dashboard-header {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.35rem;
+  }
+
+  .admin-dashboard .refresh-btn {
+    position: static;
+    margin-top: 0.65rem;
+  }
+
+  .admin-tabs {
+    gap: 0.5rem;
+  }
+
+  .admin-tabs button {
+    flex: 1 1 180px;
+  }
+
+  .profile-row {
+    align-items: flex-start;
+  }
+
+  .profile-row .value {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+}
+
+@media (max-width: 560px) {
+  .main-content,
+  .header-inner,
+  .footer-inner {
+    width: min(100% - 24px, 1280px);
+  }
+
+  .header-inner {
+    padding: 0.7rem 0;
+  }
+
+  .brand-logo {
+    width: min(300px, 84vw);
+    height: 48px;
+  }
+
+  .nav-links {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    justify-content: stretch;
+  }
+
+  .nav-links li {
+    min-width: 0;
+    justify-content: stretch;
+  }
+
+  .nav-links a,
+  .nav-links button {
+    width: 100%;
+    min-width: 0;
+    height: 40px;
+    padding: 0 0.35rem;
+    font-size: 0.78rem;
+    white-space: nowrap;
+  }
+
+  .nav-links .welcome-tag {
+    justify-content: center;
+    padding: 0 0.35rem;
+    font-size: 0.72rem;
+  }
+
+  .hero {
+    padding-top: 0.25rem;
+  }
+
+  .hero-left {
+    padding: 0.75rem 0;
+  }
+
+  .hero-left h1 {
+    font-size: clamp(2.1rem, 10vw, 3rem);
+  }
+
+  .hero-left p {
+    font-size: 1rem;
+  }
+
+  .hero-actions {
+    align-items: stretch;
+  }
+
+  .hero-metrics {
+    gap: 0.5rem;
+  }
+
+  .metric-chip {
+    flex: 1 1 135px;
+    text-align: center;
+  }
+
+  .hero-visual {
+    padding: 0.6rem;
+    border-radius: 20px;
+  }
+
+  .hero-image {
+    height: clamp(210px, 68vw, 300px);
+    border-radius: 15px;
+  }
+
+  .hero-floating-card {
+    right: 0.9rem;
+    bottom: 0.9rem;
+    padding: 0.65rem 0.8rem;
+    font-size: 0.75rem;
+  }
+
+  .search-section {
+    padding: 1.25rem 0.85rem;
+    border-radius: 20px;
+  }
+
+  .search-box {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 0.7rem;
+  }
+
+  .search-box button {
+    grid-column: auto;
+  }
+
+  .stats-section,
+  .featured-jobs-section,
+  .companies-section {
+    padding-top: 2.2rem;
+  }
+
+  .section-header {
+    margin-bottom: 1.25rem;
+  }
+
+  .stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.65rem;
+  }
+
+  .stat-card {
+    padding: 1.1rem 0.6rem;
+  }
+
+  .stat-card h2 {
+    font-size: clamp(1.6rem, 8vw, 2.2rem);
+  }
+
+  .stat-card p {
+    font-size: 0.82rem;
+  }
+
+  .job-container,
+  .dashboard-jobs-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .card {
+    min-height: 0;
+  }
+
+  .card-header {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .company-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.65rem;
+  }
+
+  .company-card {
+    padding: 1rem 0.6rem;
+  }
+
+  .company-card h3 {
+    font-size: 0.95rem;
+    overflow-wrap: anywhere;
+  }
+
+  .company-logo {
+    width: 60px;
+    height: 60px;
+  }
+
+  .auth-card {
+    padding: 1.25rem 1rem;
+    border-radius: 20px;
+  }
+
+  .auth-card > p {
+    font-size: 0.92rem;
+  }
+
+  .form-group input,
+  .form-group select,
+  .form-group textarea,
+  .filter-item input,
+  .filter-item select {
+    font-size: 16px;
+  }
+
+  .filters-container {
+    padding: 1rem;
+    border-radius: 18px;
+  }
+
+  .filters-actions,
+  .filters-actions .reset-btn {
+    width: 100%;
+  }
+
+  .dashboard-header {
+    padding: 1.15rem;
+    border-radius: 20px;
+  }
+
+  .dashboard-header h2 {
+    font-size: clamp(1.5rem, 7vw, 2rem);
+  }
+
+  .admin-stats-summary {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.5rem;
+  }
+
+  .mini-stat-card {
+    padding: 0.75rem 0.35rem;
+    border-radius: 15px;
+  }
+
+  .mini-stat-card h4 {
+    font-size: 0.72rem;
+  }
+
+  .mini-stat-card h2 {
+    font-size: 1.55rem;
+  }
+
+  .admin-tabs {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-tabs button {
+    min-width: 0;
+    padding: 0.65rem 0.5rem;
+    font-size: 0.78rem;
+  }
+
+  .profile-card,
+  .applications-card,
+  .form-card-container,
+  .jobs-list-container,
+  .admin-table-container {
+    padding: 1rem;
+    border-radius: 18px;
+  }
+
+  .profile-row {
+    flex-direction: column;
+    gap: 0.1rem;
+  }
+
+  .profile-row .value {
+    text-align: left;
+  }
+
+  .recruiter-job-card {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 0.7rem;
+  }
+
+  .action-buttons {
+    width: 100%;
+  }
+
+  .action-buttons > * {
+    flex: 1;
+  }
+
+  .footer {
+    margin-top: 2.5rem;
+  }
+
+  .footer-inner {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.25rem;
+    padding: 1.7rem 0;
+  }
+
+  .footer-brand {
+    grid-column: auto;
+  }
+
+  .footer-copy {
+    padding: 0 0.75rem 1.2rem;
+    font-size: 0.8rem;
+  }
+}
+
+@media (max-width: 360px) {
+  .main-content,
+  .header-inner,
+  .footer-inner {
+    width: calc(100% - 20px);
+  }
+
+  .nav-links a,
+  .nav-links button {
+    font-size: 0.7rem;
+  }
+
+  .admin-stats-summary {
+    gap: 0.35rem;
+  }
+
+  .mini-stat-card h4 {
+    font-size: 0.66rem;
+  }
+
+  .mini-stat-card h2 {
+    font-size: 1.35rem;
+  }
+}
+
+.mobile-menu-toggle {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .header-inner {
+    position: relative;
+    flex-direction: row;
+    justify-content: space-between;
+    padding: 0.55rem 0;
+  }
+
+  .mobile-menu-toggle {
+    display: flex;
+    width: 42px;
+    height: 42px;
+    flex: 0 0 42px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 0;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
+  }
+
+  .mobile-menu-toggle span {
+    display: block;
+    width: 19px;
+    height: 2px;
+    border-radius: 2px;
+    background: currentColor;
+  }
+
+  .brand-logo {
+    width: min(320px, 72vw);
+    height: 52px;
+  }
+
+  .main-nav {
+    position: absolute;
+    z-index: 1001;
+    top: calc(100% - 1px);
+    right: 0;
+    left: 0;
+    display: none;
+    padding: 0.55rem;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 0 0 14px 14px;
+    background: #0b2340;
+    box-shadow: 0 14px 24px rgba(8, 24, 44, 0.2);
+  }
+
+  .main-nav.is-open {
+    display: flex;
+  }
+
+  .main-nav .nav-links {
+    display: flex;
+    width: 100%;
+    align-items: stretch;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .main-nav .nav-links li {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .main-nav .nav-links a,
+  .main-nav .nav-links button {
+    width: 100%;
+    justify-content: flex-start;
+    padding: 0 0.85rem;
+    border-radius: 9px;
+  }
+
+  .main-nav .nav-links .welcome-tag {
+    height: auto;
+    min-height: 36px;
+    justify-content: flex-start;
+    padding: 0.4rem 0.85rem;
+  }
+}
+
+@media (max-width: 560px) {
+  .brand-logo {
+    width: min(300px, calc(100vw - 94px));
+    height: 46px;
+  }
+
+  .mobile-menu-toggle {
+    width: 40px;
+    height: 40px;
+    flex-basis: 40px;
   }
 }

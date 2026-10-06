@@ -34,7 +34,7 @@ function Hero() {
             <div className="hero-right">
                 <div className="hero-visual">
                     <img
-                        src="/hero-placement-photo.jpe"
+                        src="/hero-placement-photo.png"
                         alt="LJ University campus and placement opportunity"
                         className="hero-image"
                     />

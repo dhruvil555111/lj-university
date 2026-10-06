@@ -202,4 +202,13 @@
   .ia-actions {
     grid-template-columns: minmax(0, 1fr);
   }
+
+  .ia-approve,
+  .ia-reject {
+    width: 100%;
+  }
+
+  .ia-card-heading h3 {
+    overflow-wrap: anywhere;
+  }
 }

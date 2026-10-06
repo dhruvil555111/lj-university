@@ -3,13 +3,40 @@ const cors = require('cors');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const net = require('net');
 const multer = require('multer');
 
 require('dotenv').config({ path: path.join(__dirname, '.env') });
 require('dotenv').config({ path: path.join(__dirname, '..', '.env.local') });
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const configuredPort = Number.parseInt(process.env.PORT || '', 10);
+const PORT = Number.isInteger(configuredPort) && configuredPort > 0 ? configuredPort : 5000;
+
+function getAvailablePort(startPort, maxAttempts = 20) {
+    return new Promise((resolve, reject) => {
+        const tryPort = (port, attempt) => {
+            const tester = net.createServer();
+
+            tester.once('error', (error) => {
+                if (error.code === 'EADDRINUSE' && attempt < maxAttempts) {
+                    return tryPort(port + 1, attempt + 1);
+                }
+                reject(error);
+            });
+
+            tester.once('listening', () => {
+                const activePort = tester.address().port;
+                tester.close(() => resolve(activePort));
+            });
+
+            tester.listen(port, '::');
+        };
+
+        tryPort(startPort, 0);
+    });
+}
+
 const allowedOrigins = new Set([
     ...(process.env.FRONTEND_ORIGIN || '').split(',').map(origin => origin.trim()).filter(Boolean)
 ]);
@@ -129,6 +156,11 @@ function isMissingSpiColumn(error) {
         && /(?:students\.)?spi_cgpi/i.test(error.message || '');
 }
 
+function isMissingPortalSessionsTable(error) {
+    return ['42P01', 'PGRST205'].includes(error.code)
+        && /portal_sessions/i.test(error.message || '');
+}
+
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Helper functions for reading/writing data
@@ -165,12 +197,33 @@ function getBearerToken(req) {
     return match ? match[1] : null;
 }
 
-function findSession(req, role) {
+function shouldPersistSessionsInDatabase() {
+    return hasSupabaseConfiguration() || process.env.VERCEL === '1';
+}
+
+async function findSession(req, role) {
     const token = getBearerToken(req);
     if (!token) return null;
 
     const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
     const now = Date.now();
+    if (shouldPersistSessionsInDatabase()) {
+        const { data, error } = await getSupabase()
+            .from('portal_sessions')
+            .select('token_hash,email,role,expires_at')
+            .eq('token_hash', tokenHash)
+            .eq('role', role)
+            .gt('expires_at', new Date(now).toISOString())
+            .maybeSingle();
+        if (error) throw error;
+        return data ? {
+            tokenHash: data.token_hash,
+            email: data.email,
+            role: data.role,
+            expiresAt: data.expires_at
+        } : null;
+    }
+
     return readData('recruiter-sessions.json').find(session => {
         const storedHash = Buffer.from(session.tokenHash || '', 'hex');
         const requestHash = Buffer.from(tokenHash, 'hex');
@@ -182,35 +235,83 @@ function findSession(req, role) {
 }
 
 function authenticateSession(role) {
-    return (req, res, next) => {
-        const session = findSession(req, role);
-        if (!session) {
-            return res.status(401).json({ error: 'Your session is invalid or has expired. Please log in again.' });
-        }
+    return async (req, res, next) => {
+        try {
+            const session = await findSession(req, role);
+            if (!session) {
+                return res.status(401).json({ error: 'Your session is invalid or has expired. Please log in again.' });
+            }
 
-        const user = readData(role === 'recruiter' ? 'recruiters.json' : 'admins.json')
-            .find(account => account.email.toLowerCase() === session.email.toLowerCase());
-        if (!user) {
-            return res.status(401).json({ error: 'Your account could not be verified. Please log in again.' });
-        }
+            const user = role === 'admin' && session.email.toLowerCase() === 'admin@lj.edu'
+                ? { email: 'admin@lj.edu', fullName: 'LJ Admin' }
+                : readData('recruiters.json')
+                    .find(account => account.email.toLowerCase() === session.email.toLowerCase());
+            if (!user) {
+                return res.status(401).json({ error: 'Your account could not be verified. Please log in again.' });
+            }
 
-        req.authenticatedUser = user;
-        req.sessionTokenHash = session.tokenHash;
-        next();
+            req.authenticatedUser = user;
+            req.sessionTokenHash = session.tokenHash;
+            next();
+        } catch (error) {
+            logDatabaseError('session lookup', error);
+            if (process.env.VERCEL === '1' && !hasSupabaseConfiguration()) {
+                return res.status(503).json({ error: 'Live sessions require SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY to be configured on the backend.' });
+            }
+            if (isMissingPortalSessionsTable(error)) {
+                return res.status(503).json({ error: 'Recruiter sessions are not configured. Apply the latest Supabase migration and try again.' });
+            }
+            res.status(503).json({ error: 'Unable to verify your session. Please try again.' });
+        }
     };
 }
 
-function createSession(role, email) {
-    const sessions = readData('recruiter-sessions.json')
-        .filter(session => Date.parse(session.expiresAt) > Date.now());
+async function createSession(role, email) {
     const token = crypto.randomBytes(32).toString('hex');
-    sessions.push({
+    const session = {
         tokenHash: crypto.createHash('sha256').update(token).digest('hex'),
         email,
         role,
         expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
-    });
+    };
+
+    if (shouldPersistSessionsInDatabase()) {
+        const client = getSupabase();
+        const { error: cleanupError } = await client
+            .from('portal_sessions')
+            .delete()
+            .lt('expires_at', new Date().toISOString());
+        if (cleanupError) throw cleanupError;
+
+        const { error } = await client.from('portal_sessions').insert({
+            token_hash: session.tokenHash,
+            email: session.email,
+            role: session.role,
+            expires_at: session.expiresAt
+        });
+        if (error) throw error;
+        return token;
+    }
+
+    const sessions = readData('recruiter-sessions.json')
+        .filter(existingSession => Date.parse(existingSession.expiresAt) > Date.now());
+    sessions.push(session);
     return writeData('recruiter-sessions.json', sessions) ? token : null;
+}
+
+async function deleteSession(tokenHash) {
+    if (shouldPersistSessionsInDatabase()) {
+        const { error } = await getSupabase()
+            .from('portal_sessions')
+            .delete()
+            .eq('token_hash', tokenHash);
+        if (error) throw error;
+        return true;
+    }
+
+    const sessions = readData('recruiter-sessions.json')
+        .filter(session => session.tokenHash !== tokenHash);
+    return writeData('recruiter-sessions.json', sessions);
 }
 
 function isValidDeadline(deadline) {
@@ -1783,22 +1884,28 @@ app.get('/api/students/me/applications', async (req, res) => {
     }
 });
 
-app.post('/api/recruiters/logout', requireRecruiter, (req, res) => {
-    const sessions = readData('recruiter-sessions.json')
-        .filter(session => session.tokenHash !== req.sessionTokenHash);
-    if (!writeData('recruiter-sessions.json', sessions)) {
-        return res.status(500).json({ error: 'Unable to end recruiter session.' });
+app.post('/api/recruiters/logout', requireRecruiter, async (req, res) => {
+    try {
+        if (!await deleteSession(req.sessionTokenHash)) {
+            return res.status(500).json({ error: 'Unable to end recruiter session.' });
+        }
+        res.json({ message: 'Logged out successfully.' });
+    } catch (error) {
+        logDatabaseError('recruiter logout', error);
+        res.status(500).json({ error: 'Unable to end recruiter session.' });
     }
-    res.json({ message: 'Logged out successfully.' });
 });
 
-app.post('/api/admin/logout', requireAdmin, (req, res) => {
-    const sessions = readData('recruiter-sessions.json')
-        .filter(session => session.tokenHash !== req.sessionTokenHash);
-    if (!writeData('recruiter-sessions.json', sessions)) {
-        return res.status(500).json({ error: 'Unable to end admin session.' });
+app.post('/api/admin/logout', requireAdmin, async (req, res) => {
+    try {
+        if (!await deleteSession(req.sessionTokenHash)) {
+            return res.status(500).json({ error: 'Unable to end admin session.' });
+        }
+        res.json({ message: 'Logged out successfully.' });
+    } catch (error) {
+        logDatabaseError('admin logout', error);
+        res.status(500).json({ error: 'Unable to end admin session.' });
     }
-    res.json({ message: 'Logged out successfully.' });
 });
 
 // Students Endpoints
@@ -2037,7 +2144,7 @@ app.post('/api/recruiters/register', (req, res) => {
     });
 });
 
-app.post('/api/recruiters/login', (req, res) => {
+app.post('/api/recruiters/login', async (req, res) => {
     const recruiters = readData('recruiters.json');
     const { email, password } = req.body;
 
@@ -2057,7 +2164,19 @@ app.post('/api/recruiters/login', (req, res) => {
         }
     }
 
-    const sessionToken = createSession('recruiter', recruiter.email);
+    let sessionToken;
+    try {
+        sessionToken = await createSession('recruiter', recruiter.email);
+    } catch (error) {
+        logDatabaseError('recruiter session creation', error);
+        if (process.env.VERCEL === '1' && !hasSupabaseConfiguration()) {
+            return res.status(503).json({ error: 'Live sessions require SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY to be configured on the backend.' });
+        }
+        if (isMissingPortalSessionsTable(error)) {
+            return res.status(503).json({ error: 'Recruiter sessions are not configured. Apply the latest Supabase migration and try again.' });
+        }
+        return res.status(503).json({ error: 'Unable to start recruiter session. Please check the backend database setup and try again.' });
+    }
     if (!sessionToken) {
         return res.status(500).json({ error: 'Unable to start recruiter session. Please try again.' });
     }
@@ -2077,7 +2196,7 @@ app.post('/api/recruiters/login', (req, res) => {
 });
 
 // Admin Endpoint
-app.post('/api/admin/login', (req, res) => {
+app.post('/api/admin/login', async (req, res) => {
     const { email, password } = req.body;
 
     if (!email || !password) {
@@ -2086,14 +2205,19 @@ app.post('/api/admin/login', (req, res) => {
 
     // Dummy credentials
     if (email === 'admin@lj.edu' && password === 'admin123') {
-        const admins = readData('admins.json');
-        if (!admins.some(admin => admin.email === email)) {
-            admins.push({ email, fullName: 'LJ Admin' });
-            if (!writeData('admins.json', admins)) {
-                return res.status(500).json({ error: 'Unable to start admin session.' });
+        let sessionToken;
+        try {
+            sessionToken = await createSession('admin', email);
+        } catch (error) {
+            logDatabaseError('admin session creation', error);
+            if (process.env.VERCEL === '1' && !hasSupabaseConfiguration()) {
+                return res.status(503).json({ error: 'Live sessions require SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY to be configured on the backend.' });
             }
+            if (isMissingPortalSessionsTable(error)) {
+                return res.status(503).json({ error: 'Admin sessions are not configured. Apply the latest Supabase migration and try again.' });
+            }
+            return res.status(503).json({ error: 'Unable to start admin session. Please check the backend database setup and try again.' });
         }
-        const sessionToken = createSession('admin', email);
         if (!sessionToken) {
             return res.status(500).json({ error: 'Unable to start admin session.' });
         }
@@ -2136,10 +2260,20 @@ app.use((error, req, res, next) => {
     next();
 });
 
+async function startServer() {
+    const port = await getAvailablePort(PORT);
+    const server = app.listen(port, () => {
+        console.log(`Server running on port ${server.address().port}`);
+    });
+    return server.address().port;
+}
+
 if (require.main === module) {
-    app.listen(PORT, () => {
-        console.log(`Server running on port ${PORT}`);
+    startServer().catch((error) => {
+        console.error('Failed to start server:', error);
+        process.exit(1);
     });
 }
 
 module.exports = app;
+module.exports.startServer = startServer;

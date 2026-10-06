@@ -1001,4 +1001,59 @@
     align-items: flex-start;
     text-align: left;
   }
+
+  .rh-section-heading,
+  .rh-panel-heading {
+    align-items: flex-start;
+  }
+
+  .rh-item-actions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .rh-item-actions .rh-btn {
+    flex: 1 1 120px;
+  }
+
+  .rh-dialog-backdrop {
+    align-items: start;
+    padding: 0.6rem;
+  }
+
+  .rh-dialog {
+    width: 100%;
+    max-height: calc(100dvh - 1.2rem);
+  }
+
+  .rh-applicants-dialog {
+    width: 100%;
+  }
+
+  .rh-applicant {
+    width: 100%;
+  }
+}
+
+@media (max-width: 380px) {
+  .rh-header-actions {
+    flex-direction: column;
+  }
+
+  .rh-header-actions .rh-btn {
+    width: 100%;
+  }
+
+  .rh-panel {
+    padding: 0.85rem;
+  }
+
+  .rh-section-heading,
+  .rh-panel-heading {
+    gap: 0.5rem;
+  }
+
+  .rh-btn {
+    white-space: normal;
+  }
 }
