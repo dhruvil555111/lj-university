@@ -3,11 +3,20 @@ import { useNavigate } from "react-router-dom";
 import { apiUrl } from "../lib/api";
 import InterviewApprovals from "./InterviewApprovals";
 
+const ADMIN_NAV_ITEMS = [
+    { id: "overview", label: "Dashboard", marker: "D" },
+    { id: "students", label: "Students", marker: "S" },
+    { id: "recruiters", label: "Companies & Recruiters", marker: "C" },
+    { id: "jobs", label: "Job Postings", marker: "J" },
+    { id: "interviews", label: "Interview Reviews", marker: "I" },
+    { id: "drive-approvals", label: "Campus Drive Approvals", marker: "D" },
+    { id: "recruiter-verification", label: "Recruiter Approvals", marker: "R" }
+];
+
 function AdminDashboard({ loggedInUser, jobs, students, recruiters, onAddJob, onEditJob, onDeleteJob, refreshAdminData }) {
     const navigate = useNavigate();
 
-    // Tab state: 'students' | 'recruiters' | 'jobs' | 'interviews'
-    const [activeTab, setActiveTab] = useState("jobs");
+    const [activeTab, setActiveTab] = useState("overview");
 
     // Single Form state for Add/Edit Job
     const [form, setForm] = useState({
@@ -164,6 +173,45 @@ function AdminDashboard({ loggedInUser, jobs, students, recruiters, onAddJob, on
     const visibleDriveApprovals = approvalFilter === "All"
         ? driveApprovals
         : driveApprovals.filter(drive => drive.approvalStatus === approvalFilter);
+    const pendingRecruiterCount = verificationRequests.filter(request => request.verificationStatus === "Pending").length;
+    const pendingDriveCount = approvalCounts["Pending Admin Approval"] || 0;
+    const recentActivity = [
+        ...(students.slice(0, 2).map(student => ({
+            id: `student-${student.id || student.enrollment || student.email}`,
+            marker: "S",
+            title: "Student registered",
+            detail: student.fullName || student.name || "Student profile",
+            tab: "students"
+        }))),
+        ...(recruiters.slice(0, 2).map(recruiter => ({
+            id: `company-${recruiter.id || recruiter.email}`,
+            marker: "C",
+            title: "Company recruiter on portal",
+            detail: recruiter.companyName || recruiter.fullName || recruiter.email || "Recruiter profile",
+            tab: "recruiters"
+        }))),
+        ...(jobs.slice(0, 2).map(job => ({
+            id: `job-${job.id}`,
+            marker: "J",
+            title: "Job posting",
+            detail: `${job.title || "Position"}${job.company ? ` · ${job.company}` : ""}`,
+            tab: "jobs"
+        }))),
+        ...(driveApprovals.filter(drive => drive.approvalStatus === "Pending Admin Approval").slice(0, 2).map(drive => ({
+            id: `drive-${drive.id}`,
+            marker: "A",
+            title: "Campus drive awaiting review",
+            detail: `${drive.company || "Company"} · ${drive.title || "Position"}`,
+            tab: "drive-approvals"
+        })))
+    ].slice(0, 6);
+    const driveStatusSummary = [
+        { label: "Approved", count: approvalCounts.Approved || 0, className: "approved" },
+        { label: "Pending", count: pendingDriveCount, className: "pending" },
+        { label: "Changes requested", count: approvalCounts["Changes Requested"] || 0, className: "changes" },
+        { label: "Rejected", count: approvalCounts.Rejected || 0, className: "rejected" }
+    ];
+    const largestDriveStatusCount = Math.max(1, ...driveStatusSummary.map(item => item.count));
 
     useEffect(() => {
         if (adminRole !== "admin") return;
@@ -353,98 +401,151 @@ function AdminDashboard({ loggedInUser, jobs, students, recruiters, onAddJob, on
         setEditingJobId(null);
     }
 
+    function openAdminSection(sectionId) {
+        setActiveTab(sectionId);
+        if (sectionId === "drive-approvals") loadDriveApprovals();
+        if (sectionId === "recruiter-verification") loadVerificationRequests();
+    }
+
     return (
         <div className="dashboard-container admin-dashboard">
-            <div className="dashboard-header">
-                <h2>Admin Control Center</h2>
-                <p>Manage college placements, registered students, and active hiring recruiters</p>
-                <button onClick={refreshAdminData} className="refresh-btn">
-                    Sync & Refresh Data 🔄
-                </button>
-            </div>
-
-            {/* Admin Stats Overview */}
-            <div className="admin-stats-summary">
-                <div className="mini-stat-card">
-                    <h4>Total Jobs</h4>
-                    <h2>{jobs.length}</h2>
-                </div>
-                <div className="mini-stat-card">
-                    <h4>Students</h4>
-                    <h2>{students.length}</h2>
-                </div>
-                <div className="mini-stat-card">
-                    <h4>Recruiters</h4>
-                    <h2>{recruiters.length}</h2>
-                </div>
-                <div className="mini-stat-card">
-                    <h4>Pending Drive Approvals</h4>
-                    <h2>{approvalCounts["Pending Admin Approval"] || 0}</h2>
-                </div>
-                <div className="mini-stat-card">
-                    <h4>Approved Drives</h4>
-                    <h2>{approvalCounts.Approved || 0}</h2>
-                </div>
-                <div className="mini-stat-card">
-                    <h4>Rejected Drives</h4>
-                    <h2>{approvalCounts.Rejected || 0}</h2>
-                </div>
-                <div className="mini-stat-card">
-                    <h4>Changes Requested</h4>
-                    <h2>{approvalCounts["Changes Requested"] || 0}</h2>
-                </div>
-                {["Pending", "Approved", "Rejected"].map(status => (
-                    <div className="mini-stat-card" key={`recruiter-${status}`}>
-                        <h4>{status === "Pending" ? "Pending Recruiter Approvals" : `${status} Recruiters`}</h4>
-                        <h2>{verificationRequests.filter(request => request.verificationStatus === status).length}</h2>
+            <div className="admin-layout">
+                <aside className="admin-sidebar">
+                    <div className="admin-sidebar-brand">
+                        <span className="admin-sidebar-brand-mark">LJ</span>
+                        <div>
+                            <strong>Placement Cell</strong>
+                            <span>Admin Panel</span>
+                        </div>
                     </div>
-                ))}
-            </div>
+                    <nav className="admin-sidebar-nav" aria-label="Admin sections">
+                        <span className="admin-sidebar-label">WORKSPACE</span>
+                        {ADMIN_NAV_ITEMS.map(item => {
+                            const badge = item.id === "drive-approvals"
+                                ? pendingDriveCount
+                                : item.id === "recruiter-verification"
+                                    ? pendingRecruiterCount
+                                    : null;
+                            return (
+                                <button
+                                    type="button"
+                                    key={item.id}
+                                    className={`admin-nav-item${activeTab === item.id ? " active" : ""}`}
+                                    aria-current={activeTab === item.id ? "page" : undefined}
+                                    onClick={() => openAdminSection(item.id)}
+                                >
+                                    <span className="admin-nav-marker" aria-hidden="true">{item.marker}</span>
+                                    <span className="admin-nav-label">{item.label}</span>
+                                    {badge > 0 && <span className="admin-nav-badge">{badge}</span>}
+                                </button>
+                            );
+                        })}
+                    </nav>
+                    <div className="admin-sidebar-user">
+                        <span className="admin-avatar">
+                            {(loggedInUser.fullName || loggedInUser.name || loggedInUser.email || "A").slice(0, 1).toUpperCase()}
+                        </span>
+                        <span>
+                            <strong>{loggedInUser.fullName || loggedInUser.name || "Administrator"}</strong>
+                            <small>Placement Cell Admin</small>
+                        </span>
+                    </div>
+                </aside>
 
-            {/* Tabs for Navigation */}
-            <div className="admin-tabs">
-                <button 
-                    className={activeTab === "jobs" ? "active" : ""} 
-                    onClick={() => setActiveTab("jobs")}
-                >
-                    Jobs Administration
-                </button>
-                <button 
-                    className={activeTab === "students" ? "active" : ""} 
-                    onClick={() => setActiveTab("students")}
-                >
-                    View Students ({students.length})
-                </button>
-                <button 
-                    className={activeTab === "recruiters" ? "active" : ""} 
-                    onClick={() => setActiveTab("recruiters")}
-                >
-                    View Recruiters ({recruiters.length})
-                </button>
-                <button
-                    className={activeTab === "interviews" ? "active" : ""}
-                    onClick={() => setActiveTab("interviews")}
-                >
-                    Interview Approvals
-                </button>
-                <button
-                    className={activeTab === "drive-approvals" ? "active" : ""}
-                    onClick={() => {
-                        setActiveTab("drive-approvals");
-                        loadDriveApprovals();
-                    }}
-                >
-                    Campus Drive Approvals
-                </button>
-                <button
-                    className={activeTab === "recruiter-verification" ? "active" : ""}
-                    onClick={() => setActiveTab("recruiter-verification")}
-                >
-                    Recruiter Approvals
-                </button>
-            </div>
+                <main className="admin-main">
+                    <div className="dashboard-header admin-page-header">
+                        <div>
+                            <span className="admin-page-eyebrow">LJ UNIVERSITY · PLACEMENT CELL</span>
+                            <h2>{activeTab === "overview"
+                                ? `Welcome, ${loggedInUser.fullName || loggedInUser.name || "Admin"}`
+                                : ADMIN_NAV_ITEMS.find(item => item.id === activeTab)?.label || "Admin Panel"}</h2>
+                            <p>{activeTab === "overview"
+                                ? "Manage campus placements, students, and recruiting partners from one place."
+                                : "Review and manage placement portal records."}</p>
+                        </div>
+                        <button type="button" onClick={refreshAdminData} className="refresh-btn">
+                            Sync & Refresh
+                        </button>
+                    </div>
 
-            <div className="admin-content-area">
+                    {activeTab === "overview" && (
+                        <section className="admin-overview" aria-label="Placement dashboard overview">
+                            <div className="admin-stats-summary">
+                                <article className="admin-overview-stat students">
+                                    <span className="admin-overview-stat-icon">S</span>
+                                    <div><span>Total Students</span><strong>{students.length.toLocaleString()}</strong><small>Registered student profiles</small></div>
+                                </article>
+                                <article className="admin-overview-stat companies">
+                                    <span className="admin-overview-stat-icon">C</span>
+                                    <div><span>Registered Companies</span><strong>{recruiters.length.toLocaleString()}</strong><small>Recruiter partner accounts</small></div>
+                                </article>
+                                <article className="admin-overview-stat postings">
+                                    <span className="admin-overview-stat-icon">J</span>
+                                    <div><span>Job Postings</span><strong>{jobs.length.toLocaleString()}</strong><small>Available placement listings</small></div>
+                                </article>
+                                <article className="admin-overview-stat approvals">
+                                    <span className="admin-overview-stat-icon">A</span>
+                                    <div><span>Pending Approvals</span><strong>{(pendingDriveCount + pendingRecruiterCount).toLocaleString()}</strong><small>Drives and companies to review</small></div>
+                                </article>
+                            </div>
+
+                            <div className="admin-overview-grid">
+                                <section className="admin-overview-panel admin-activity-panel">
+                                    <div className="admin-panel-heading">
+                                        <div><h3>Recent Activity</h3><p>Latest records available in the placement portal</p></div>
+                                    </div>
+                                    {recentActivity.length === 0 ? (
+                                        <div className="admin-overview-empty">Activity will appear here as students, companies, jobs, and drives are added.</div>
+                                    ) : (
+                                        <ul className="admin-activity-list">
+                                            {recentActivity.map(activity => (
+                                                <li key={activity.id}>
+                                                    <span className="admin-activity-marker">{activity.marker}</span>
+                                                    <div><strong>{activity.title}</strong><span>{activity.detail}</span></div>
+                                                    <button type="button" onClick={() => openAdminSection(activity.tab)} aria-label={`View ${activity.title}`}>View</button>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    )}
+                                </section>
+
+                                <section className="admin-overview-panel admin-approval-panel">
+                                    <div className="admin-panel-heading">
+                                        <div><h3>Campus Drive Approvals</h3><p>Current review status for submitted drives</p></div>
+                                        <button type="button" onClick={() => openAdminSection("drive-approvals")}>View all</button>
+                                    </div>
+                                    <div className="admin-approval-summary">
+                                        {driveStatusSummary.map(item => (
+                                            <button
+                                                type="button"
+                                                className="admin-approval-row"
+                                                key={item.label}
+                                                onClick={() => {
+                                                    setApprovalFilter(item.label === "Pending" ? "Pending Admin Approval" : item.label === "Changes requested" ? "Changes Requested" : item.label);
+                                                    openAdminSection("drive-approvals");
+                                                }}
+                                            >
+                                                <span className={`admin-approval-dot ${item.className}`} />
+                                                <span className="admin-approval-label">{item.label}</span>
+                                                <span className="admin-approval-track"><span style={{ width: `${(item.count / largestDriveStatusCount) * 100}%` }} /></span>
+                                                <strong>{item.count}</strong>
+                                            </button>
+                                        ))}
+                                    </div>
+                                    <div className="admin-quick-review">
+                                        <button type="button" onClick={() => openAdminSection("recruiter-verification")}>
+                                            <span><strong>Recruiter approvals</strong><small>{pendingRecruiterCount} pending review</small></span><b>›</b>
+                                        </button>
+                                        <button type="button" onClick={() => openAdminSection("drive-approvals")}>
+                                            <span><strong>Campus drive approvals</strong><small>{pendingDriveCount} pending review</small></span><b>›</b>
+                                        </button>
+                                    </div>
+                                </section>
+                            </div>
+                        </section>
+                    )}
+
+                    <div className="admin-content-area">
                 {activeTab === "jobs" && (
                     <div className="dashboard-grid">
                         {/* Form Card (Post/Edit Job) */}
@@ -792,6 +893,8 @@ function AdminDashboard({ loggedInUser, jobs, students, recruiters, onAddJob, on
                             ))}
                     </section>
                 )}
+            </div>
+                </main>
             </div>
             {verificationActionRequest && (
                 <div className="rh-dialog-backdrop" onMouseDown={event => {
