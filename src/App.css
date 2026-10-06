@@ -1088,6 +1088,87 @@ body {
   border-color: var(--lj-blue);
 }
 
+.admin-drive-approvals {
+  display: grid;
+  gap: 1rem;
+}
+
+.admin-drive-approval-heading,
+.admin-drive-card-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.admin-drive-approval-heading h3,
+.admin-drive-card-heading h4 {
+  margin: 0 0 0.35rem;
+  color: var(--lj-navy);
+}
+
+.admin-drive-approval-heading p,
+.admin-drive-card-heading p,
+.admin-drive-note {
+  color: var(--lj-muted);
+  font-size: 0.88rem;
+}
+
+.admin-drive-filters,
+.admin-drive-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.admin-drive-filters button {
+  padding: 0.55rem 0.85rem;
+  border: 1px solid var(--lj-border);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--lj-navy);
+  font-weight: 700;
+}
+
+.admin-drive-filters button.active {
+  border-color: var(--lj-blue);
+  background: var(--lj-blue);
+  color: #fff;
+}
+
+.admin-drive-card {
+  display: grid;
+  gap: 0.8rem;
+  padding: 1rem;
+  border: 1px solid var(--lj-border);
+  border-radius: 14px;
+  background: #fff;
+}
+
+.admin-drive-card-heading > div:first-child {
+  display: grid;
+  justify-items: start;
+  gap: 0.4rem;
+}
+
+.admin-drive-note {
+  margin: 0;
+  padding: 0.65rem;
+  border-radius: 9px;
+  background: #fff8e8;
+}
+
+.admin-drive-detail .rh-details {
+  max-height: 65vh;
+  overflow: auto;
+}
+
+.admin-drive-logo {
+  max-width: 110px;
+  max-height: 70px;
+  object-fit: contain;
+}
+
 .admin-table {
   width: 100%;
   border-collapse: collapse;
@@ -1220,6 +1301,11 @@ body {
     grid-template-columns: 1fr;
   }
 
+  .admin-drive-approval-heading,
+  .admin-drive-card-heading {
+    flex-direction: column;
+  }
+
   .form-buttons {
     display: grid;
   }
@@ -1264,5 +1350,39 @@ body {
   .dashboard-header {
     padding-left: 1rem;
     padding-right: 1rem;
+  }
+}
+
+.admin-verification-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 0.75rem;
+  margin: 1rem 0;
+}
+
+.admin-verification-company {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.8rem;
+  min-width: 0;
+}
+
+.admin-verification-company > div:last-child {
+  min-width: 0;
+}
+
+.rh-tag-pending {
+  background: #fff3d7;
+  color: #7a4a00;
+}
+
+@media (max-width: 560px) {
+  .admin-verification-company {
+    align-items: flex-start;
+  }
+
+  .admin-verification-company .rh-company-logo-small {
+    width: 40px;
+    height: 40px;
   }
 }

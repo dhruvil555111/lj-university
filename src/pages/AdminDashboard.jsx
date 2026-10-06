@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiUrl } from "../lib/api";
 import InterviewApprovals from "./InterviewApprovals";
@@ -22,6 +22,196 @@ function AdminDashboard({ loggedInUser, jobs, students, recruiters, onAddJob, on
     const [errors, setErrors] = useState({});
     const [isEditing, setIsEditing] = useState(false);
     const [editingJobId, setEditingJobId] = useState(null);
+    const [driveApprovals, setDriveApprovals] = useState([]);
+    const [approvalFilter, setApprovalFilter] = useState("Pending Admin Approval");
+    const [approvalLoading, setApprovalLoading] = useState(false);
+    const [approvalError, setApprovalError] = useState("");
+    const [approvalActionDrive, setApprovalActionDrive] = useState(null);
+    const [approvalAction, setApprovalAction] = useState("");
+    const [approvalNote, setApprovalNote] = useState("");
+    const [approvalSubmitting, setApprovalSubmitting] = useState(false);
+    const [selectedApprovalDrive, setSelectedApprovalDrive] = useState(null);
+    const [verificationRequests, setVerificationRequests] = useState([]);
+    const [verificationFilter, setVerificationFilter] = useState("All");
+    const [verificationLoading, setVerificationLoading] = useState(false);
+    const [verificationError, setVerificationError] = useState("");
+    const [selectedVerificationRequest, setSelectedVerificationRequest] = useState(null);
+    const [verificationActionRequest, setVerificationActionRequest] = useState(null);
+    const [verificationAction, setVerificationAction] = useState("");
+    const [verificationReason, setVerificationReason] = useState("");
+    const [verificationSubmitting, setVerificationSubmitting] = useState(false);
+    const adminRole = loggedInUser?.role;
+    const adminSessionToken = loggedInUser?.sessionToken;
+
+    async function readApiResponse(response) {
+        const text = await response.text();
+        let data = {};
+        if (text) {
+            try {
+                data = JSON.parse(text);
+            } catch {
+                throw new Error(`Server returned an unreadable response (${response.status}).`);
+            }
+        }
+        if (!response.ok) throw new Error(data.error || `Request failed (${response.status}).`);
+        return data;
+    }
+
+    const loadDriveApprovals = useCallback(async () => {
+        setApprovalLoading(true);
+        setApprovalError("");
+        try {
+            const response = await fetch(apiUrl("admin/campus-drive-approvals"), {
+                headers: { Authorization: `Bearer ${loggedInUser.sessionToken}` }
+            });
+            const data = await readApiResponse(response);
+            const drives = Array.isArray(data.drives) ? data.drives : [];
+            setDriveApprovals(drives);
+        } catch (error) {
+            console.error("Failed to load campus drive approvals:", error);
+            setApprovalError(error.message || "Unable to load campus drive approvals.");
+        } finally {
+            setApprovalLoading(false);
+        }
+    }, [loggedInUser?.sessionToken]);
+
+    const loadVerificationRequests = useCallback(async () => {
+        setVerificationLoading(true);
+        setVerificationError("");
+        try {
+            const response = await fetch(apiUrl("admin/recruiter-verifications?status=All"), {
+                headers: { Authorization: `Bearer ${loggedInUser?.sessionToken}` }
+            });
+            const data = await readApiResponse(response);
+            setVerificationRequests(Array.isArray(data.requests) ? data.requests : []);
+        } catch (error) {
+            console.error("Failed to load recruiter verification requests:", error);
+            setVerificationError(error.message || "Unable to load recruiter verification requests.");
+        } finally {
+            setVerificationLoading(false);
+        }
+    }, [loggedInUser?.sessionToken]);
+
+    async function submitVerificationDecision(event) {
+        event.preventDefault();
+        if (!verificationActionRequest || !verificationAction) return;
+        setVerificationSubmitting(true);
+        setVerificationError("");
+        try {
+            const response = await fetch(
+                apiUrl(`admin/recruiter-verifications/${verificationActionRequest.id}`),
+                {
+                    method: "PATCH",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${loggedInUser.sessionToken}`
+                    },
+                    body: JSON.stringify({
+                        action: verificationAction,
+                        reason: verificationAction === "reject" ? verificationReason : undefined
+                    })
+                }
+            );
+            await readApiResponse(response);
+            setVerificationActionRequest(null);
+            setVerificationAction("");
+            setVerificationReason("");
+            await loadVerificationRequests();
+        } catch (error) {
+            console.error("Failed to save recruiter verification decision:", error);
+            setVerificationError(error.message || "Unable to save recruiter verification decision.");
+        } finally {
+            setVerificationSubmitting(false);
+        }
+    }
+
+    async function submitDriveApprovalAction(event) {
+        event.preventDefault();
+        if (!approvalActionDrive || !approvalAction) return;
+        setApprovalSubmitting(true);
+        setApprovalError("");
+        try {
+            const response = await fetch(
+                apiUrl(`admin/campus-drive-approvals/${approvalActionDrive.id}`),
+                {
+                    method: "PATCH",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${loggedInUser.sessionToken}`
+                    },
+                    body: JSON.stringify(approvalAction === "reject"
+                        ? { action: approvalAction, reason: approvalNote }
+                        : { action: approvalAction, adminNotes: approvalNote })
+                }
+            );
+            await readApiResponse(response);
+            setApprovalActionDrive(null);
+            setApprovalAction("");
+            setApprovalNote("");
+            await loadDriveApprovals();
+        } catch (error) {
+            console.error("Failed to save campus drive approval:", error);
+            setApprovalError(error.message || "Unable to save campus drive decision.");
+        } finally {
+            setApprovalSubmitting(false);
+        }
+    }
+
+    const approvalCounts = driveApprovals.reduce((counts, drive) => ({
+        ...counts,
+        [drive.approvalStatus]: (counts[drive.approvalStatus] || 0) + 1
+    }), {});
+    const visibleDriveApprovals = approvalFilter === "All"
+        ? driveApprovals
+        : driveApprovals.filter(drive => drive.approvalStatus === approvalFilter);
+
+    useEffect(() => {
+        if (adminRole !== "admin") return;
+        let active = true;
+        async function loadInitialApprovals() {
+            try {
+                const response = await fetch(apiUrl("admin/campus-drive-approvals"), {
+                    headers: { Authorization: `Bearer ${adminSessionToken}` }
+                });
+                const data = await readApiResponse(response);
+                if (active) setDriveApprovals(Array.isArray(data.drives) ? data.drives : []);
+            } catch (error) {
+                if (active) {
+                    console.error("Failed to load campus drive approvals:", error);
+                    setApprovalError(error.message || "Unable to load campus drive approvals.");
+                }
+            }
+        }
+        loadInitialApprovals();
+        return () => {
+            active = false;
+        };
+    }, [adminRole, adminSessionToken]);
+
+    useEffect(() => {
+        if (adminRole !== "admin") return undefined;
+        let active = true;
+        async function loadInitialVerificationRequests() {
+            try {
+                const response = await fetch(apiUrl("admin/recruiter-verifications?status=All"), {
+                    headers: { Authorization: `Bearer ${adminSessionToken}` }
+                });
+                const data = await readApiResponse(response);
+                if (active) setVerificationRequests(Array.isArray(data.requests) ? data.requests : []);
+            } catch (error) {
+                if (active) {
+                    console.error("Failed to load recruiter verification requests:", error);
+                    setVerificationError(error.message || "Unable to load recruiter verification requests.");
+                }
+            } finally {
+                if (active) setVerificationLoading(false);
+            }
+        }
+        loadInitialVerificationRequests();
+        return () => {
+            active = false;
+        };
+    }, [adminRole, adminSessionToken]);
 
     if (!loggedInUser || loggedInUser.role !== 'admin') {
         return (
@@ -187,6 +377,28 @@ function AdminDashboard({ loggedInUser, jobs, students, recruiters, onAddJob, on
                     <h4>Recruiters</h4>
                     <h2>{recruiters.length}</h2>
                 </div>
+                <div className="mini-stat-card">
+                    <h4>Pending Drive Approvals</h4>
+                    <h2>{approvalCounts["Pending Admin Approval"] || 0}</h2>
+                </div>
+                <div className="mini-stat-card">
+                    <h4>Approved Drives</h4>
+                    <h2>{approvalCounts.Approved || 0}</h2>
+                </div>
+                <div className="mini-stat-card">
+                    <h4>Rejected Drives</h4>
+                    <h2>{approvalCounts.Rejected || 0}</h2>
+                </div>
+                <div className="mini-stat-card">
+                    <h4>Changes Requested</h4>
+                    <h2>{approvalCounts["Changes Requested"] || 0}</h2>
+                </div>
+                {["Pending", "Approved", "Rejected"].map(status => (
+                    <div className="mini-stat-card" key={`recruiter-${status}`}>
+                        <h4>{status === "Pending" ? "Pending Recruiter Approvals" : `${status} Recruiters`}</h4>
+                        <h2>{verificationRequests.filter(request => request.verificationStatus === status).length}</h2>
+                    </div>
+                ))}
             </div>
 
             {/* Tabs for Navigation */}
@@ -214,6 +426,21 @@ function AdminDashboard({ loggedInUser, jobs, students, recruiters, onAddJob, on
                     onClick={() => setActiveTab("interviews")}
                 >
                     Interview Approvals
+                </button>
+                <button
+                    className={activeTab === "drive-approvals" ? "active" : ""}
+                    onClick={() => {
+                        setActiveTab("drive-approvals");
+                        loadDriveApprovals();
+                    }}
+                >
+                    Campus Drive Approvals
+                </button>
+                <button
+                    className={activeTab === "recruiter-verification" ? "active" : ""}
+                    onClick={() => setActiveTab("recruiter-verification")}
+                >
+                    Recruiter Approvals
                 </button>
             </div>
 
@@ -410,7 +637,306 @@ function AdminDashboard({ loggedInUser, jobs, students, recruiters, onAddJob, on
                 {activeTab === "interviews" && (
                     <InterviewApprovals sessionToken={loggedInUser.sessionToken} />
                 )}
+                {activeTab === "drive-approvals" && (
+                    <section className="admin-drive-approvals" aria-labelledby="campus-drive-approvals-heading">
+                        <div className="admin-drive-approval-heading">
+                            <div>
+                                <h3 id="campus-drive-approvals-heading">Campus Drive Approvals</h3>
+                                <p>Review recruiter-submitted campus drives before they become visible to students.</p>
+                            </div>
+                            <button type="button" className="refresh-btn" onClick={() => loadDriveApprovals()}>Refresh</button>
+                        </div>
+                        <div className="admin-drive-filters" aria-label="Filter campus drive approvals">
+                            {["Pending Admin Approval", "Approved", "Rejected", "Changes Requested", "All"].map(status => (
+                                <button
+                                    type="button"
+                                    key={status}
+                                    className={approvalFilter === status ? "active" : ""}
+                                    onClick={() => {
+                                        setApprovalFilter(status);
+                                        loadDriveApprovals(status);
+                                    }}
+                                >
+                                    {status}
+                                </button>
+                            ))}
+                        </div>
+                        {approvalError && <div className="api-error" role="alert">{approvalError}</div>}
+                        {approvalLoading && <p role="status">Loading campus drive approvals...</p>}
+                        {!approvalLoading && !approvalError && visibleDriveApprovals.length === 0 && (
+                            <div className="empty-state"><p>No campus drives in this approval category.</p></div>
+                        )}
+                        {!approvalLoading && visibleDriveApprovals.map(drive => (
+                            <article className="admin-drive-card" key={drive.id}>
+                                <div className="admin-drive-card-heading">
+                                    <div>
+                                        <span className={`rh-tag rh-tag-${drive.approvalStatus.toLowerCase().replaceAll(" ", "-")}`}>
+                                            {drive.approvalStatus}
+                                        </span>
+                                        <h4>{drive.company} · {drive.title}</h4>
+                                        <p>{drive.driveId || `Drive #${drive.id}`} · {drive.recruiterName} · {drive.recruiterEmail}</p>
+                                    </div>
+                                    <button type="button" className="rh-btn" onClick={() => setSelectedApprovalDrive(drive)}>View Details</button>
+                                </div>
+                                {(drive.rejectionReason || drive.adminNotes) && (
+                                    <p className="admin-drive-note">
+                                        {drive.rejectionReason && <>Rejection reason: {drive.rejectionReason} </>}
+                                        {drive.adminNotes && <>Admin notes: {drive.adminNotes}</>}
+                                    </p>
+                                )}
+                                <div className="admin-drive-actions">
+                                    {drive.approvalStatus !== "Approved" && (
+                                        <button type="button" className="rh-btn rh-btn-primary" onClick={() => {
+                                            setApprovalActionDrive(drive);
+                                            setApprovalAction("approve");
+                                            setApprovalNote("");
+                                        }}>Approve</button>
+                                    )}
+                                    {drive.approvalStatus !== "Rejected" && (
+                                        <button type="button" className="rh-btn rh-btn-danger" onClick={() => {
+                                            setApprovalActionDrive(drive);
+                                            setApprovalAction("reject");
+                                            setApprovalNote("");
+                                        }}>Reject</button>
+                                    )}
+                                    {drive.approvalStatus !== "Changes Requested" && (
+                                        <button type="button" className="rh-btn" onClick={() => {
+                                            setApprovalActionDrive(drive);
+                                            setApprovalAction("requestChanges");
+                                            setApprovalNote("");
+                                        }}>Request Changes</button>
+                                    )}
+                                </div>
+                            </article>
+                        ))}
+                    </section>
+                )}
+                {activeTab === "recruiter-verification" && (
+                    <section className="admin-drive-approvals" aria-labelledby="recruiter-verification-heading">
+                        <div className="admin-drive-approval-heading">
+                            <div>
+                                <h3 id="recruiter-verification-heading">Recruiter Approvals</h3>
+                                <p>Verify recruiter identity and company information before they can submit campus drives.</p>
+                            </div>
+                            <button type="button" className="refresh-btn" onClick={loadVerificationRequests}>Refresh</button>
+                        </div>
+                        <div className="admin-verification-stats">
+                            {["Pending", "Approved", "Rejected"].map(status => (
+                                <article className="mini-stat-card" key={status}>
+                                    <h4>{status === "Pending" ? "Pending Recruiter Approvals" : `${status} Recruiters`}</h4>
+                                    <h2>{verificationRequests.filter(request => request.verificationStatus === status).length}</h2>
+                                </article>
+                            ))}
+                        </div>
+                        <div className="admin-drive-filters" aria-label="Filter recruiter verifications">
+                            {["All", "Pending", "Approved", "Rejected"].map(status => (
+                                <button
+                                    type="button"
+                                    key={status}
+                                    className={verificationFilter === status ? "active" : ""}
+                                    onClick={() => setVerificationFilter(status)}
+                                >
+                                    {status}
+                                </button>
+                            ))}
+                        </div>
+                        {verificationError && <div className="api-error" role="alert">{verificationError}</div>}
+                        {verificationLoading && <p role="status">Loading recruiter verification requests...</p>}
+                        {!verificationLoading && !verificationError && verificationRequests.filter(request =>
+                            verificationFilter === "All" || request.verificationStatus === verificationFilter
+                        ).length === 0 && (
+                            <div className="empty-state"><p>No recruiter verification requests in this category.</p></div>
+                        )}
+                        {!verificationLoading && verificationRequests
+                            .filter(request => verificationFilter === "All" || request.verificationStatus === verificationFilter)
+                            .map(request => (
+                                <article className="admin-drive-card" key={request.id}>
+                                    <div className="admin-drive-card-heading">
+                                        <div className="admin-verification-company">
+                                            <div className="rh-company-logo-small">
+                                                {request.companyLogoUrl
+                                                    ? <img src={request.companyLogoUrl} alt={`${request.companyName} logo`} />
+                                                    : <span>{(request.companyName || "?").slice(0, 2).toUpperCase()}</span>}
+                                            </div>
+                                            <div>
+                                                <span className={`rh-tag rh-tag-${request.verificationStatus.toLowerCase()}`}>{request.verificationStatus}</span>
+                                                <h4>{request.companyName || "Company name not provided"}</h4>
+                                                <p>{request.industry || "Industry not provided"} · {request.fullName} · {request.officialEmail || request.email}</p>
+                                                <p>{request.phone || "Phone not provided"} · {request.location || "Location not provided"} · Submitted {request.submittedDate ? new Date(request.submittedDate).toLocaleDateString() : "date unavailable"}</p>
+                                            </div>
+                                        </div>
+                                        <button type="button" className="rh-btn" onClick={() => setSelectedVerificationRequest(request)}>View Details</button>
+                                    </div>
+                                    {request.verificationRejectionReason && (
+                                        <p className="admin-drive-note">Rejection reason: {request.verificationRejectionReason}</p>
+                                    )}
+                                    <div className="admin-drive-actions">
+                                        {request.verificationStatus !== "Approved" && (
+                                            <button type="button" className="rh-btn rh-btn-primary" onClick={() => {
+                                                setVerificationActionRequest(request);
+                                                setVerificationAction("approve");
+                                                setVerificationReason("");
+                                                setVerificationError("");
+                                            }}>Approve</button>
+                                        )}
+                                        {request.verificationStatus !== "Rejected" && (
+                                            <button type="button" className="rh-btn rh-btn-danger" onClick={() => {
+                                                setVerificationActionRequest(request);
+                                                setVerificationAction("reject");
+                                                setVerificationReason("");
+                                                setVerificationError("");
+                                            }}>Reject</button>
+                                        )}
+                                    </div>
+                                </article>
+                            ))}
+                    </section>
+                )}
             </div>
+            {verificationActionRequest && (
+                <div className="rh-dialog-backdrop" onMouseDown={event => {
+                    if (event.target === event.currentTarget && !verificationSubmitting) setVerificationActionRequest(null);
+                }}>
+                    <section className="rh-dialog rh-panel" role="dialog" aria-modal="true" aria-labelledby="recruiter-verification-action-heading">
+                        <h3 id="recruiter-verification-action-heading">
+                            {verificationAction === "approve" ? "Approve Recruiter & Company" : "Reject Recruiter & Company"}
+                        </h3>
+                        <p>{verificationActionRequest.companyName} · {verificationActionRequest.fullName}</p>
+                        {verificationError && <div className="api-error" role="alert">{verificationError}</div>}
+                        <form className="dashboard-form" onSubmit={submitVerificationDecision}>
+                            {verificationAction === "reject" && (
+                                <div className="form-group">
+                                    <label htmlFor="verification-rejection-reason">Rejection reason</label>
+                                    <textarea
+                                        id="verification-rejection-reason"
+                                        value={verificationReason}
+                                        onChange={event => setVerificationReason(event.target.value)}
+                                        required
+                                    />
+                                </div>
+                            )}
+                            <div className="form-buttons">
+                                <button type="submit" className="submit-job-btn" disabled={verificationSubmitting}>
+                                    {verificationSubmitting ? "Saving..." : "Confirm"}
+                                </button>
+                                <button type="button" className="cancel-edit-btn" disabled={verificationSubmitting} onClick={() => setVerificationActionRequest(null)}>Cancel</button>
+                            </div>
+                        </form>
+                    </section>
+                </div>
+            )}
+            {selectedVerificationRequest && (
+                <div className="rh-dialog-backdrop" onMouseDown={event => {
+                    if (event.target === event.currentTarget) setSelectedVerificationRequest(null);
+                }}>
+                    <section className="rh-dialog rh-panel admin-drive-detail" role="dialog" aria-modal="true" aria-labelledby="recruiter-verification-detail-heading">
+                        <div className="rh-panel-heading">
+                            <h3 id="recruiter-verification-detail-heading">{selectedVerificationRequest.companyName} · Verification Details</h3>
+                            <button type="button" className="rh-dialog-close" aria-label="Close verification details" onClick={() => setSelectedVerificationRequest(null)}>&times;</button>
+                        </div>
+                        <dl className="rh-details">
+                            {[
+                                ["Company Logo", selectedVerificationRequest.companyLogoUrl ? <img className="admin-drive-logo" src={selectedVerificationRequest.companyLogoUrl} alt={`${selectedVerificationRequest.companyName} logo`} /> : "Not provided"],
+                                ["Company Name", selectedVerificationRequest.companyName],
+                                ["Recruiter Name", selectedVerificationRequest.fullName],
+                                ["Designation", selectedVerificationRequest.designation],
+                                ["HR / Talent Acquisition", selectedVerificationRequest.hrTalentAcquisition],
+                                ["Official Email", selectedVerificationRequest.officialEmail || selectedVerificationRequest.email],
+                                ["Phone", selectedVerificationRequest.phone],
+                                ["Location", selectedVerificationRequest.location],
+                                ["Website", selectedVerificationRequest.website],
+                                ["LinkedIn", selectedVerificationRequest.linkedInUrl || selectedVerificationRequest.linkedInProfile],
+                                ["Industry", selectedVerificationRequest.industry],
+                                ["Company Type", selectedVerificationRequest.companyType],
+                                ["Company Size", selectedVerificationRequest.companySize],
+                                ["Founded Year", selectedVerificationRequest.foundedYear],
+                                ["Company Description", selectedVerificationRequest.companyDescription],
+                                ["Submitted Date", selectedVerificationRequest.submittedDate ? new Date(selectedVerificationRequest.submittedDate).toLocaleString() : "Not available"],
+                                ["Verification Status", selectedVerificationRequest.verificationStatus],
+                                ["Approved By", selectedVerificationRequest.approvedBy || "Not applicable"],
+                                ["Approved At", selectedVerificationRequest.approvedAt ? new Date(selectedVerificationRequest.approvedAt).toLocaleString() : "Not applicable"],
+                                ["Rejected By", selectedVerificationRequest.rejectedBy || "Not applicable"],
+                                ["Rejected At", selectedVerificationRequest.rejectedAt ? new Date(selectedVerificationRequest.rejectedAt).toLocaleString() : "Not applicable"],
+                                ["Rejection Reason", selectedVerificationRequest.verificationRejectionReason || "Not applicable"]
+                            ].map(([label, value]) => (
+                                <div key={label}><dt>{label}</dt><dd>{value || "Not provided"}</dd></div>
+                            ))}
+                        </dl>
+                    </section>
+                </div>
+            )}
+            {approvalActionDrive && (
+                <div className="rh-dialog-backdrop" onMouseDown={event => {
+                    if (event.target === event.currentTarget && !approvalSubmitting) setApprovalActionDrive(null);
+                }}>
+                    <section className="rh-dialog rh-panel" role="dialog" aria-modal="true" aria-labelledby="drive-approval-action-heading">
+                        <h3 id="drive-approval-action-heading">
+                            {approvalAction === "approve" ? "Approve Campus Drive" : approvalAction === "reject" ? "Reject Campus Drive" : "Request Changes"}
+                        </h3>
+                        <p>{approvalActionDrive.company} · {approvalActionDrive.title}</p>
+                        {approvalError && <div className="api-error" role="alert">{approvalError}</div>}
+                        <form className="dashboard-form" onSubmit={submitDriveApprovalAction}>
+                            {approvalAction !== "approve" && (
+                                <div className="form-group">
+                                    <label htmlFor="drive-approval-note">
+                                        {approvalAction === "reject" ? "Rejection reason" : "Admin notes"}
+                                    </label>
+                                    <textarea
+                                        id="drive-approval-note"
+                                        value={approvalNote}
+                                        onChange={event => setApprovalNote(event.target.value)}
+                                        required
+                                    />
+                                </div>
+                            )}
+                            <div className="form-buttons">
+                                <button type="submit" className="submit-job-btn" disabled={approvalSubmitting}>
+                                    {approvalSubmitting ? "Saving..." : "Confirm"}
+                                </button>
+                                <button type="button" className="cancel-edit-btn" disabled={approvalSubmitting} onClick={() => setApprovalActionDrive(null)}>Cancel</button>
+                            </div>
+                        </form>
+                    </section>
+                </div>
+            )}
+            {selectedApprovalDrive && (
+                <div className="rh-dialog-backdrop" onMouseDown={event => {
+                    if (event.target === event.currentTarget) setSelectedApprovalDrive(null);
+                }}>
+                    <section className="rh-dialog rh-panel admin-drive-detail" role="dialog" aria-modal="true" aria-labelledby="drive-detail-heading">
+                        <div className="rh-panel-heading">
+                            <h3 id="drive-detail-heading">{selectedApprovalDrive.company} · {selectedApprovalDrive.title}</h3>
+                            <button type="button" className="rh-dialog-close" aria-label="Close drive details" onClick={() => setSelectedApprovalDrive(null)}>&times;</button>
+                        </div>
+                        <dl className="rh-details">
+                            {[
+                                ["Company Logo", selectedApprovalDrive.companyLogoUrl ? <img className="admin-drive-logo" src={selectedApprovalDrive.companyLogoUrl} alt={`${selectedApprovalDrive.company} logo`} /> : "Not provided"],
+                                ["Recruiter", selectedApprovalDrive.recruiterName],
+                                ["Recruiter Email", selectedApprovalDrive.recruiterEmail],
+                                ["Drive ID", selectedApprovalDrive.driveId || selectedApprovalDrive.id],
+                                ["Job Position", selectedApprovalDrive.title],
+                                ["Job Description", selectedApprovalDrive.description],
+                                ["Eligible Course", selectedApprovalDrive.eligibleCourse || "All"],
+                                ["Eligible Department", selectedApprovalDrive.eligibleDepartment || "All"],
+                                ["Eligible Batch/Semester", selectedApprovalDrive.eligibleSemester || "All"],
+                                ["Minimum SPI/CGPA", selectedApprovalDrive.minimumSpiCgpa || "Not specified"],
+                                ["10th %", selectedApprovalDrive.minimumTenthPercentage || "Not specified"],
+                                ["12th %", selectedApprovalDrive.minimumTwelfthPercentage || "Not specified"],
+                                ["Backlog Allowed", selectedApprovalDrive.backlogAllowed ? "Yes" : "No"],
+                                ["Required Skills", Array.isArray(selectedApprovalDrive.requiredSkills) ? selectedApprovalDrive.requiredSkills.join(", ") || "Not specified" : "Not specified"],
+                                ["Package/CTC", selectedApprovalDrive.salary],
+                                ["Job Location", selectedApprovalDrive.location],
+                                ["Application Deadline", selectedApprovalDrive.deadline],
+                                ["Number of Vacancies", selectedApprovalDrive.vacancies || "Not specified"],
+                                ["Selection Process", selectedApprovalDrive.selectionProcess || "Not specified"],
+                                ["Created Date", selectedApprovalDrive.createdAt ? new Date(selectedApprovalDrive.createdAt).toLocaleDateString() : "Not available"]
+                            ].map(([label, value]) => (
+                                <div key={label}><dt>{label}</dt><dd>{value}</dd></div>
+                            ))}
+                        </dl>
+                    </section>
+                </div>
+            )}
         </div>
     );
 }

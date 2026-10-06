@@ -39,16 +39,29 @@ function App() {
 
   useEffect(() => {
     const controller = new AbortController();
-    fetch(apiUrl("jobs"), { signal: controller.signal })
+    const headers = loggedInUser?.role === "student" && loggedInUser.sessionToken
+      ? { Authorization: `Bearer ${loggedInUser.sessionToken}` }
+      : {};
+    fetch(apiUrl("jobs"), { signal: controller.signal, headers })
       .then(async response => {
+        let data = {};
+        const text = await response.text();
+        if (text) {
+          try {
+            data = JSON.parse(text);
+          } catch {
+            throw new Error(`Server returned an unreadable response (${response.status}).`);
+          }
+        }
         if (!response.ok) throw new Error("Unable to load placement listings.");
-        setJobs(await response.json());
+        if (!Array.isArray(data)) throw new Error("Placement listings response was invalid.");
+        setJobs(data);
       })
       .catch(error => {
         if (error.name !== "AbortError") console.error("Failed to load placements:", error);
       });
     return () => controller.abort();
-  }, []);
+  }, [loggedInUser?.role, loggedInUser?.sessionToken]);
 
   useEffect(() => {
     if (loggedInUser?.role !== "student" || !loggedInUser.sessionToken) {
@@ -144,7 +157,15 @@ function App() {
       },
       body: JSON.stringify({ jobId: job.id })
     });
-    const data = await response.json();
+    const text = await response.text();
+    let data = {};
+    if (text) {
+      try {
+        data = JSON.parse(text);
+      } catch {
+        throw new Error(`Server returned an unreadable response (${response.status}).`);
+      }
+    }
     if (!response.ok) throw new Error(data.error || "Unable to submit your application.");
     setAppliedJobs(currentJobs => currentJobs.some(item => String(item.id) === String(job.id))
       ? currentJobs
