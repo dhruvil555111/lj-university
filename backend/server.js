@@ -401,7 +401,7 @@ async function recruiterPhotoUrlFor(recruiter) {
 
 async function syncRecruiterProfileToDatabase(recruiter) {
     if (!hasSupabaseConfiguration()) return;
-    const { error } = await getSupabase()
+    const { data, error } = await getSupabase()
         .from('recruiters')
         .update({
             full_name: recruiter.fullName,
@@ -432,8 +432,71 @@ async function syncRecruiterProfileToDatabase(recruiter) {
             rejected_by: recruiter.rejectedBy || null,
             rejected_at: recruiter.rejectedAt || null
         })
-        .ilike('email', recruiter.email);
+        .ilike('email', recruiter.email)
+        .select('email');
     if (error) throw error;
+    if (!data?.length) throw new Error(`No Supabase recruiter record found for ${recruiter.email}`);
+}
+
+const recruiterProfileColumns = {
+    full_name: 'fullName',
+    company_name: 'companyName',
+    designation: 'designation',
+    hr_talent_acquisition: 'hrTalentAcquisition',
+    short_bio: 'shortBio',
+    official_email: 'officialEmail',
+    phone: 'phone',
+    linkedin_profile: 'linkedInProfile',
+    location: 'location',
+    industry: 'industry',
+    company_type: 'companyType',
+    company_size: 'companySize',
+    founded_year: 'foundedYear',
+    website: 'website',
+    full_address: 'fullAddress',
+    linkedin_url: 'linkedInUrl',
+    company_description: 'companyDescription',
+    company_logo_path: 'companyLogoPath',
+    profile_photo_path: 'profilePhotoPath',
+    verification_status: 'verificationStatus',
+    verified: 'verified',
+    verification_submitted_at: 'verificationSubmittedAt',
+    verified_by: 'verifiedBy',
+    verified_at: 'verifiedAt',
+    verification_rejection_reason: 'verificationRejectionReason',
+    rejected_by: 'rejectedBy',
+    rejected_at: 'rejectedAt'
+};
+
+function mergeRecruiterDatabaseProfile(recruiter, databaseProfile) {
+    const mergedRecruiter = { ...recruiter };
+    for (const [column, field] of Object.entries(recruiterProfileColumns)) {
+        if (databaseProfile[column] !== undefined) {
+            mergedRecruiter[field] = databaseProfile[column] ?? '';
+        }
+    }
+    return mergedRecruiter;
+}
+
+async function recruiterWithDatabaseProfile(recruiter) {
+    if (!hasSupabaseConfiguration()) return recruiter;
+    const { data, error } = await getSupabase()
+        .from('recruiters')
+        .select('*')
+        .ilike('email', recruiter.email)
+        .maybeSingle();
+    if (error) throw error;
+    return data ? mergeRecruiterDatabaseProfile(recruiter, data) : recruiter;
+}
+
+async function saveRecruiterProfile(recruiter, recruiters) {
+    if (hasSupabaseConfiguration()) {
+        await syncRecruiterProfileToDatabase(recruiter);
+        return;
+    }
+    if (!writeData('recruiters.json', recruiters)) {
+        throw new Error('Unable to save recruiter data.');
+    }
 }
 
 function recruiterCanCreateDrives(recruiter) {
@@ -807,9 +870,10 @@ const requireAdmin = authenticateSession('admin');
 
 app.get('/api/recruiters/me/profile', requireRecruiter, async (req, res) => {
     try {
-        const recruiter = readData('recruiters.json')
+        const localRecruiter = readData('recruiters.json')
             .find(account => account.email.toLowerCase() === req.authenticatedUser.email.toLowerCase());
-        if (!recruiter) return res.status(404).json({ error: 'Recruiter profile not found.' });
+        if (!localRecruiter) return res.status(404).json({ error: 'Recruiter profile not found.' });
+        const recruiter = await recruiterWithDatabaseProfile(localRecruiter);
         res.json({
             profile: {
                 ...publicRecruiter(recruiter, await companyLogoUrlFor(recruiter)),
@@ -824,10 +888,17 @@ app.get('/api/recruiters/me/profile', requireRecruiter, async (req, res) => {
 
 app.put('/api/recruiters/me/profile', requireRecruiter, async (req, res) => {
     const recruiters = readData('recruiters.json');
-    const recruiter = recruiters.find(account =>
+    const localRecruiter = recruiters.find(account =>
         account.email.toLowerCase() === req.authenticatedUser.email.toLowerCase()
     );
-    if (!recruiter) return res.status(404).json({ error: 'Recruiter profile not found.' });
+    if (!localRecruiter) return res.status(404).json({ error: 'Recruiter profile not found.' });
+    let recruiter;
+    try {
+        recruiter = await recruiterWithDatabaseProfile(localRecruiter);
+    } catch (error) {
+        logDatabaseError('recruiter profile lookup', error);
+        return res.status(500).json({ error: 'Unable to load your recruiter profile.' });
+    }
 
     const fields = [
         'fullName', 'designation', 'hrTalentAcquisition', 'shortBio', 'officialEmail', 'phone',
@@ -857,20 +928,18 @@ app.put('/api/recruiters/me/profile', requireRecruiter, async (req, res) => {
 
     Object.assign(recruiter, profile);
     resetRecruiterVerificationForResubmission(recruiter);
-    if (!writeData('recruiters.json', recruiters)) {
-        return res.status(500).json({ error: 'Unable to save your profile. Please try again.' });
-    }
     try {
-        await syncRecruiterProfileToDatabase(recruiter);
+        await saveRecruiterProfile(recruiter, recruiters);
+        const savedRecruiter = await recruiterWithDatabaseProfile(recruiter);
         res.json({
             profile: {
-                ...publicRecruiter(recruiter, await companyLogoUrlFor(recruiter)),
-                profilePhotoUrl: await recruiterPhotoUrlFor(recruiter)
+                ...publicRecruiter(savedRecruiter, await companyLogoUrlFor(savedRecruiter)),
+                profilePhotoUrl: await recruiterPhotoUrlFor(savedRecruiter)
             }
         });
     } catch (error) {
         logDatabaseError('recruiter profile synchronization', error);
-        res.status(500).json({ error: 'Profile was saved, but database synchronization failed.' });
+        res.status(500).json({ error: 'Unable to save your recruiter profile. Please try again.' });
     }
 });
 
@@ -919,10 +988,17 @@ app.post('/api/recruiters/me/profile/company-logo', requireRecruiter, companyLog
     if (!req.file) return res.status(400).json({ error: 'Choose a JPG, PNG, or WebP company logo.' });
     if (!validImageContents(req.file)) return res.status(400).json({ error: 'The uploaded company logo is not a valid image file.' });
     const recruiters = readData('recruiters.json');
-    const recruiter = recruiters.find(account =>
+    const localRecruiter = recruiters.find(account =>
         account.email.toLowerCase() === req.authenticatedUser.email.toLowerCase()
     );
-    if (!recruiter) return res.status(404).json({ error: 'Recruiter profile not found.' });
+    if (!localRecruiter) return res.status(404).json({ error: 'Recruiter profile not found.' });
+    let recruiter;
+    try {
+        recruiter = await recruiterWithDatabaseProfile(localRecruiter);
+    } catch (error) {
+        logDatabaseError('company logo profile lookup', error);
+        return res.status(500).json({ error: 'Unable to load your recruiter profile.' });
+    }
 
     const extension = { 'image/jpeg': '.jpg', 'image/png': '.png', 'image/webp': '.webp' }[req.file.mimetype];
     const fileName = `${crypto.randomUUID()}${extension}`;
@@ -941,12 +1017,10 @@ app.post('/api/recruiters/me/profile/company-logo', requireRecruiter, companyLog
         }
         recruiter.companyLogoPath = storagePath;
         resetRecruiterVerificationForResubmission(recruiter);
-        if (!writeData('recruiters.json', recruiters)) {
-            return res.status(500).json({ error: 'Logo was uploaded, but your profile could not be updated.' });
-        }
-        await syncRecruiterProfileToDatabase(recruiter);
+        await saveRecruiterProfile(recruiter, recruiters);
+        const savedRecruiter = await recruiterWithDatabaseProfile(recruiter);
         res.status(201).json({
-            profile: publicRecruiter(recruiter, await companyLogoUrlFor(recruiter))
+            profile: publicRecruiter(savedRecruiter, await companyLogoUrlFor(savedRecruiter))
         });
     } catch (error) {
         logDatabaseError('company logo upload', error);
@@ -961,7 +1035,9 @@ app.get('/api/admin/recruiter-verifications', requireAdmin, async (req, res) => 
         return res.status(400).json({ error: 'Invalid recruiter verification filter.' });
     }
     try {
-        const recruiters = readData('recruiters.json')
+        const recruiterProfiles = await Promise.all(readData('recruiters.json')
+            .map(recruiterWithDatabaseProfile));
+        const recruiters = recruiterProfiles
             .filter(recruiter => status === 'All' || recruiterVerificationStatus(recruiter) === status)
             .sort((first, second) =>
                 (second.verificationSubmittedAt || '').localeCompare(first.verificationSubmittedAt || '')
@@ -987,8 +1063,15 @@ app.patch('/api/admin/recruiter-verifications/:id', requireAdmin, async (req, re
         return res.status(400).json({ error: 'A rejection reason is required.' });
     }
     const recruiters = readData('recruiters.json');
-    const recruiter = recruiters.find(account => String(account.id) === req.params.id);
-    if (!recruiter) return res.status(404).json({ error: 'Recruiter verification request not found.' });
+    const localRecruiter = recruiters.find(account => String(account.id) === req.params.id);
+    if (!localRecruiter) return res.status(404).json({ error: 'Recruiter verification request not found.' });
+    let recruiter;
+    try {
+        recruiter = await recruiterWithDatabaseProfile(localRecruiter);
+    } catch (error) {
+        logDatabaseError('recruiter verification profile lookup', error);
+        return res.status(500).json({ error: 'Unable to load recruiter verification request.' });
+    }
     const decisionAt = new Date().toISOString();
     Object.assign(recruiter, {
         verificationStatus: action === 'approve' ? 'Approved' : 'Rejected',
@@ -999,21 +1082,19 @@ app.patch('/api/admin/recruiter-verifications/:id', requireAdmin, async (req, re
         rejectedAt: action === 'reject' ? decisionAt : null,
         verificationRejectionReason: action === 'reject' ? reason.trim() : ''
     });
-    if (!writeData('recruiters.json', recruiters)) {
-        return res.status(500).json({ error: 'Unable to save the recruiter verification decision.' });
-    }
     try {
-        await syncRecruiterProfileToDatabase(recruiter);
+        await saveRecruiterProfile(recruiter, recruiters);
+        const savedRecruiter = await recruiterWithDatabaseProfile(recruiter);
         res.json({
             request: {
-                ...publicRecruiter(recruiter, await companyLogoUrlFor(recruiter)),
-                profilePhotoUrl: await recruiterPhotoUrlFor(recruiter),
-                submittedDate: recruiter.verificationSubmittedAt || recruiter.createdAt || null
+                ...publicRecruiter(savedRecruiter, await companyLogoUrlFor(savedRecruiter)),
+                profilePhotoUrl: await recruiterPhotoUrlFor(savedRecruiter),
+                submittedDate: savedRecruiter.verificationSubmittedAt || savedRecruiter.createdAt || null
             }
         });
     } catch (error) {
         logDatabaseError('admin recruiter verification synchronization', error);
-        res.status(500).json({ error: 'Verification was saved locally, but database synchronization failed.' });
+        res.status(500).json({ error: 'Unable to save the recruiter verification decision.' });
     }
 });
 
